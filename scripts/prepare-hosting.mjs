@@ -2,26 +2,40 @@ import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 
 const dist = new URL('../dist/', import.meta.url)
 const server = new URL('server/', dist)
-const assets = new URL('assets/', dist)
-const names = await readdir(assets)
-const js = names.find(name => /^index-.*\.js$/.test(name))
-const css = names.find(name => /^index-.*\.css$/.test(name))
-if (!js || !css) throw new Error('Assets do Vite não encontrados')
+const textExtensions = new Set(['.css', '.html', '.js', '.json', '.svg', '.txt', '.webmanifest'])
+const contentTypes = {
+  '.css': 'text/css; charset=utf-8', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml',
+  '.webmanifest': 'application/manifest+json', '.woff': 'font/woff', '.woff2': 'font/woff2',
+}
 
-const textAssets = {
-  '/': [await readFile(new URL('index.html', dist), 'utf8'), 'text/html; charset=utf-8'],
-  '/index.html': [await readFile(new URL('index.html', dist), 'utf8'), 'text/html; charset=utf-8'],
-  [`/assets/${js}`]: [await readFile(new URL(`assets/${js}`, dist), 'utf8'), 'text/javascript; charset=utf-8'],
-  [`/assets/${css}`]: [await readFile(new URL(`assets/${css}`, dist), 'utf8'), 'text/css; charset=utf-8'],
-  '/assets/verified-badge.svg': [await readFile(new URL('../public/assets/verified-badge.svg', import.meta.url), 'utf8'), 'image/svg+xml'],
-  '/manifest.webmanifest': [await readFile(new URL('manifest.webmanifest', dist), 'utf8'), 'application/manifest+json'],
+const files = []
+const collect = async directory => {
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const location = new URL(entry.isDirectory() ? `${entry.name}/` : entry.name, directory)
+    if (entry.isDirectory()) {
+      if (entry.name !== 'server' && entry.name !== '.openai') await collect(location)
+    } else files.push(location)
+  }
 }
-const binaryAssets = {
-  '/assets/avatar-paulo.png': [(await readFile(new URL('../public/assets/avatar-paulo.png', import.meta.url))).toString('base64'), 'image/png'],
-  '/assets/logo-inest-principal.png': [(await readFile(new URL('../public/assets/logo-inest-principal.png', import.meta.url))).toString('base64'), 'image/png'],
-  '/icons/icon-192.png': [(await readFile(new URL('../public/icons/icon-192.png', import.meta.url))).toString('base64'), 'image/png'],
-  '/icons/icon-512.png': [(await readFile(new URL('../public/icons/icon-512.png', import.meta.url))).toString('base64'), 'image/png'],
+await collect(dist)
+
+const textAssets = {}
+const binaryAssets = {}
+for (const file of files) {
+  const path = new URL(file).pathname.replace(/^.*\/dist\//, '/')
+  const extension = path.slice(path.lastIndexOf('.')).toLowerCase()
+  const contentType = contentTypes[extension] ?? 'application/octet-stream'
+  if (textExtensions.has(extension)) textAssets[path] = [await readFile(file, 'utf8'), contentType]
+  else binaryAssets[path] = [(await readFile(file)).toString('base64'), contentType]
 }
-const worker = `const textAssets=${JSON.stringify(textAssets)};\nconst binaryAssets=${JSON.stringify(binaryAssets)};\nconst bytes=(b)=>Uint8Array.from(atob(b),c=>c.charCodeAt(0));\nexport default {fetch(request){const path=new URL(request.url).pathname;const text=textAssets[path];if(text)return new Response(text[0],{headers:{'content-type':text[1]}});const binary=binaryAssets[path];if(binary)return new Response(bytes(binary[0]),{headers:{'content-type':binary[1]}});return new Response('Not found',{status:404})}};\n`
+textAssets['/'] = textAssets['/index.html']
+
+const worker = `const textAssets=${JSON.stringify(textAssets)};
+const binaryAssets=${JSON.stringify(binaryAssets)};
+const bytes=b=>Uint8Array.from(atob(b),c=>c.charCodeAt(0));
+const headers=(type,path)=>({'content-type':type,'cache-control':path==='/'||path==='/index.html'||path==='/sw.js'?'no-store, max-age=0':'public, max-age=31536000, immutable'});
+export default {fetch(request){const path=new URL(request.url).pathname;const text=textAssets[path];if(text)return new Response(text[0],{headers:headers(text[1],path)});const binary=binaryAssets[path];if(binary)return new Response(bytes(binary[0]),{headers:headers(binary[1],path)});return new Response('Not found',{status:404})}};
+`
 await mkdir(server, { recursive: true })
 await writeFile(new URL('index.js', server), worker)
