@@ -25,7 +25,7 @@ export default function App() {
   const gesture = (id: string, patch: Partial<TweetSlide['media'][number]>) => update({ media: active.media.map(item => item.id === id ? { ...item, ...patch } : item) })
   if (!ready) return <main className="loading">Carregando seu projeto…</main>
   return <main className="app">
-    <header className="app-header"><div><strong>iNest</strong><span>Tweet Cards</span></div><button className="text-button" onClick={fresh}>Novo projeto</button></header>
+    <header className="app-header"><div className="brand-lockup"><img src="/assets/logo-inest-principal.png" alt="iNest — iPhone, iPad e MacBook" /><span>Tweet Cards</span></div><button className="text-button" onClick={fresh}>Novo projeto</button></header>
     <div className="desktop-layout">
       <aside className={'control-column tab-' + tab}>
         <div className="mobile-tabs"><button onClick={() => setTab('content')} className={tab === 'content' ? 'active' : ''}>Conteúdo</button><button onClick={() => setTab('media')} className={tab === 'media' ? 'active' : ''}>Mídia</button><button onClick={() => setTab('preview')} className={tab === 'preview' ? 'active' : ''}>Preview</button><button onClick={() => setTab('slides')} className={tab === 'slides' ? 'active' : ''}>Slides</button></div>

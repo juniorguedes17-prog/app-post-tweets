@@ -18,6 +18,7 @@ const textAssets = {
 }
 const binaryAssets = {
   '/assets/avatar-paulo.png': [(await readFile(new URL('../public/assets/avatar-paulo.png', import.meta.url))).toString('base64'), 'image/png'],
+  '/assets/logo-inest-principal.png': [(await readFile(new URL('../public/assets/logo-inest-principal.png', import.meta.url))).toString('base64'), 'image/png'],
   '/icons/icon-192.png': [(await readFile(new URL('../public/icons/icon-192.png', import.meta.url))).toString('base64'), 'image/png'],
   '/icons/icon-512.png': [(await readFile(new URL('../public/icons/icon-512.png', import.meta.url))).toString('base64'), 'image/png'],
 }
