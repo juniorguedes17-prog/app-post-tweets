@@ -36,3 +36,18 @@ body { background:var(--inest-bg); color:var(--inest-text) }
 .brand-lockup img { display:none }
 .brand-lockup::before { content:""; display:block; width:170px; height:72px; flex:0 0 170px; background:url("/assets/logo-inest-principal.png?v=header-v3") center 43% / 150% auto no-repeat }
 .brand-lockup span { padding-left:14px }
+
+/* Card header: the 1080px export canvas remains fixed while identity text wraps safely. */
+.tweet-header,.identity,.profile-name,.handle { max-width:100%; min-width:0; box-sizing:border-box }
+.tweet-header { align-items:flex-start; overflow:visible }
+.identity { flex:1 1 0 }
+.profile-name { white-space:normal; flex-wrap:wrap; overflow-wrap:anywhere; word-break:break-word }
+.handle { overflow-wrap:anywhere; word-break:break-word }
+
+/* Preview-only scale. Export remains exactly 1080 × 1350. */
+.preview-zoom-control { position:fixed; z-index:8; right:max(18px, env(safe-area-inset-right)); bottom:max(18px, env(safe-area-inset-bottom)); display:flex; align-items:center; gap:9px; padding:10px 12px; border:1px solid var(--inest-border); border-radius:14px; background:rgba(255,255,255,.96); box-shadow:0 8px 24px rgba(17,24,39,.08); color:var(--inest-muted); font-size:12px }
+.preview-zoom-control input { width:140px; accent-color:var(--inest-purple) }
+.preview-zoom-control output { min-width:34px; color:#4b5563; font-variant-numeric:tabular-nums }
+.card-scaler { overflow:hidden; max-width:100% }
+.card-scaler .tweet-card { transform:scale(var(--preview-scale, .65)); transform-origin:top left; margin-bottom:calc(var(--preview-height, 875px) - 1350px); margin-left:var(--preview-offset, 0px); }
+@media (max-width:799px) { .preview-zoom-control { right:auto; left:max(14px, env(safe-area-inset-left)); bottom:max(14px, env(safe-area-inset-bottom)); } }

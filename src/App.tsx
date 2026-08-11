@@ -9,10 +9,25 @@ type Tab = 'content' | 'media' | 'preview' | 'slides'
 
 export default function App() {
   const [project, setProject] = useState<TweetProject>(newProject)
-  const [ready, setReady] = useState(false); const [tab, setTab] = useState<Tab>('content'); const [exporting, setExporting] = useState(false)
+  const [ready, setReady] = useState(false); const [tab, setTab] = useState<Tab>('content'); const [exporting, setExporting] = useState(false); const [previewZoom, setPreviewZoom] = useState(0.9)
   const { exportOne, exportAll } = useExport()
   useEffect(() => { loadProject().then(saved => { if (saved?.slides?.length) setProject(saved); setReady(true) }).catch(() => setReady(true)) }, [])
   useEffect(() => { if (ready) { const timer = setTimeout(() => saveProject({ ...project, updatedAt: Date.now() }), 350); return () => clearTimeout(timer) } }, [project, ready])
+  useEffect(() => {
+    const scaler = document.querySelector<HTMLElement>('.card-scaler')
+    if (!scaler) return
+    const updatePreviewScale = () => {
+      const width = Math.min(700, scaler.clientWidth)
+      const scale = width / 1080 * previewZoom
+      document.documentElement.style.setProperty('--preview-scale', String(scale))
+      document.documentElement.style.setProperty('--preview-height', `${width * 1.25 * previewZoom}px`)
+      document.documentElement.style.setProperty('--preview-offset', `${width * (1 - previewZoom) / 2}px`)
+    }
+    const observer = new ResizeObserver(updatePreviewScale)
+    observer.observe(scaler)
+    updatePreviewScale()
+    return () => observer.disconnect()
+  }, [ready, previewZoom])
   const active = useMemo(() => project.slides.find(s => s.id === project.activeSlideId) ?? project.slides[0], [project])
   const update = (patch: Partial<TweetSlide>) => setProject(p => ({ ...p, slides: p.slides.map(s => s.id === active.id ? { ...s, ...patch } : s) }))
   const select = (id: string) => setProject(p => ({ ...p, activeSlideId: id }))
@@ -36,5 +51,6 @@ export default function App() {
       </aside>
       <section className="preview-column"><div className="preview-label">Preview · 1080 × 1350</div><div className="card-scaler"><TweetCard slide={active} onMediaAdjust={gesture} /></div><div className="desktop-slides"><SlideNavigator slides={project.slides} activeId={active.id} select={select} add={add} duplicate={duplicate} remove={remove} /></div></section>
     </div>
+    <label className="preview-zoom-control">Escala do preview <input aria-label="Escala do preview" type="range" min="0.7" max="1" step="0.05" value={previewZoom} onChange={event => setPreviewZoom(Number(event.target.value))} /><output>{Math.round(previewZoom * 100)}%</output></label>
   </main>
 }
