@@ -8,4 +8,10 @@ await mkdir(server, { recursive: true })
 for (const entry of await readdir(root)) {
   if (entry !== 'server' && entry !== 'public') await cp(new URL(entry, root), new URL(entry, publicDir), { recursive: true })
 }
-await writeFile(new URL('index.js', server), `export default { fetch(request, env) { return env.ASSETS.fetch(request) } }\n`)
+await writeFile(new URL('index.js', server), `export default {
+  fetch(request, env) {
+    const url = new URL(request.url)
+    if (url.pathname === '/') url.pathname = '/index.html'
+    return env.ASSETS.fetch(new Request(url, request))
+  },
+}\n`)
