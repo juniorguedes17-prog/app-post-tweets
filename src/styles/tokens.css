@@ -30,3 +30,9 @@ body { background:var(--inest-bg); color:var(--inest-text) }
 .card-scaler { background:var(--inest-surface); border:1px solid var(--inest-border); border-radius:20px; box-shadow:0 12px 28px rgba(17,24,39,.08) }
 .slide-chip { background:var(--inest-surface); border-color:#e4e7ec; color:#4b5563 }.slide-chip.active { background:rgba(123,44,255,.1); border-color:#d9c5ff; color:var(--inest-purple) }
 .style-controls { color:#4b5563 }.style-button { background:var(--inest-surface); border-color:#e4e7ec; color:#4b5563; border-radius:10px }.style-button.selected { background:rgba(123,44,255,.1); border-color:#d9c5ff; color:var(--inest-purple) }.font-control output { color:#4b5563 }
+
+/* Header wordmark: use the supplied square source with a header-specific crop. */
+.brand-lockup { gap:14px }
+.brand-lockup img { display:none }
+.brand-lockup::before { content:""; display:block; width:156px; height:48px; flex:0 0 156px; background:url("/assets/logo-inest-principal.png") center 43% / 150% auto no-repeat }
+.brand-lockup span { padding-left:14px }
