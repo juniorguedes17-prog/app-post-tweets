@@ -1,0 +1,7 @@
+import type { Template, TweetSlide } from '../../types/project'
+import { MediaEditor } from './MediaEditor'
+
+export function EditorPanel({ slide, update }: { slide: TweetSlide; update: (patch: Partial<TweetSlide>) => void }) {
+  const field = (key: 'headline' | 'body' | 'cta', label: string, placeholder: string) => <label className="field"><span>{label}</span><textarea value={slide[key]} placeholder={placeholder} onChange={e => update({ [key]: e.target.value })} /></label>
+  return <div className="editor-panel"><section className="editor-section"><h2>Conteúdo</h2><label className="field"><span>Modelo</span><select value={slide.template} onChange={e => update({ template: e.target.value as Template })}><option value="cover">Capa</option><option value="content">Conteúdo</option><option value="final">Final</option></select></label>{field('headline', 'Headline', '🍎 SALVA ESSAS DATAS.')}{field('body', 'Corpo', 'Seu texto aqui…')}{field('cta', 'CTA', 'Arraste para o lado 👉')}</section><MediaEditor media={slide.media} overlay={slide.mediaTextOverlay} setOverlay={mediaTextOverlay => update({ mediaTextOverlay })} add={item => update({ media: [...slide.media, item].slice(0, 2) })} remove={id => update({ media: slide.media.filter(item => item.id !== id) })} update={(id, patch) => update({ media: slide.media.map(item => item.id === id ? { ...item, ...patch } : item) })} /></div>
+}
