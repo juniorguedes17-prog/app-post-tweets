@@ -37,6 +37,12 @@ body { background:var(--inest-bg); color:var(--inest-text) }
 .brand-lockup::before { content:""; display:block; width:170px; height:72px; flex:0 0 170px; background:url("/assets/logo-inest-principal.png?v=header-v3") center 43% / 150% auto no-repeat }
 .brand-lockup span { padding-left:14px }
 
+.media-image { cursor:grab; user-select:none; -webkit-user-select:none }
+.media-image:active { cursor:grabbing }
+.media-image img { pointer-events:none; user-select:none; -webkit-user-drag:none }
+.media-overlay { pointer-events:none }
+.media-gesture-hint { margin:0 0 12px; font-size:12px; line-height:1.45; color:var(--inest-muted) }
+
 /* Card header: the 1080px export canvas remains fixed while identity text wraps safely. */
 .tweet-header,.identity,.profile-name,.handle { max-width:100%; min-width:0; box-sizing:border-box }
 .tweet-header { align-items:flex-start; overflow:visible }
