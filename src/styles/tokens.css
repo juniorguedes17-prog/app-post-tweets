@@ -43,6 +43,18 @@ body { background:var(--inest-bg); color:var(--inest-text) }
 .media-overlay { pointer-events:none }
 .media-gesture-hint { margin:0 0 12px; font-size:12px; line-height:1.45; color:var(--inest-muted) }
 
+/* Workspace frame: the application header stays fixed and each work area owns its scroll. */
+html,body,#root { height:100%; overflow:hidden }
+.app { height:100dvh; min-height:0; display:flex; flex-direction:column; overflow:hidden }
+.app-header { position:relative; z-index:10; flex:0 0 auto; background:var(--inest-bg) }
+.desktop-layout { flex:1 1 auto; min-height:0; overflow:hidden }
+.preview-column { min-height:0; overflow:hidden }
+.card-scaler { overflow-y:auto; overflow-x:hidden; min-height:0; scrollbar-gutter:stable }
+.export-actions { grid-template-columns:repeat(2,minmax(0,1fr)) }
+.export-actions .export-all { grid-column:1 / -1 }
+@media (min-width:800px) { .desktop-layout { align-items:stretch }.control-column { position:static; height:100%; max-height:none; overflow:auto; padding-right:8px }.preview-column { height:100%; display:flex; flex-direction:column; align-items:center }.card-scaler { width:min(700px,100%); flex:1 1 auto }.desktop-slides { flex:0 0 auto } }
+@media (max-width:799px) { .desktop-layout { display:flex; flex-direction:column }.control-column { flex:1 1 auto; min-height:0; overflow:auto }.control-column.tab-preview { flex:0 0 auto; overflow:visible }.control-column.tab-preview + .preview-column { display:flex; flex:1 1 auto; min-height:0; flex-direction:column; padding-top:8px }.control-column.tab-preview + .preview-column .card-scaler { flex:1 1 auto } }
+
 /* Card header: the 1080px export canvas remains fixed while identity text wraps safely. */
 .tweet-header,.identity,.profile-name,.handle { max-width:100%; min-width:0; box-sizing:border-box }
 .tweet-header { align-items:flex-start; overflow:visible }
