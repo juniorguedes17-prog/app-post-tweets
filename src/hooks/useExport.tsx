@@ -3,13 +3,75 @@ import JSZip from 'jszip'
 import type { TweetSlide } from '../types/project'
 
 const fileName = (index: number) => `inest-tweet-slide-${String(index + 1).padStart(2, '0')}.png`
+
+const nextPaint = () => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+
+function waitForImage(image: HTMLImageElement) {
+  if (image.complete && image.naturalWidth > 0) return image.decode?.().catch(() => undefined) ?? Promise.resolve()
+
+  return new Promise<void>((resolve, reject) => {
+    const finish = () => {
+      image.removeEventListener('load', onLoad)
+      image.removeEventListener('error', onError)
+    }
+    const onLoad = () => {
+      finish()
+      void (image.decode?.().catch(() => undefined) ?? Promise.resolve()).then(resolve)
+    }
+    const onError = () => {
+      finish()
+      reject(new Error('Uma imagem do card não pôde ser carregada para a exportação.'))
+    }
+    image.addEventListener('load', onLoad, { once: true })
+    image.addEventListener('error', onError, { once: true })
+  })
+}
+
+function blobToDataUrl(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(reader.error ?? new Error('Não foi possível preparar a imagem para exportação.'))
+    reader.readAsDataURL(blob)
+  })
+}
+
+async function inlineImages(card: HTMLElement) {
+  const images = Array.from(card.querySelectorAll('img'))
+  await Promise.all(images.map(async image => {
+    await waitForImage(image)
+    const source = image.currentSrc || image.src
+    if (source.startsWith('data:')) return
+
+    const response = await fetch(source)
+    if (!response.ok) throw new Error('Uma imagem do card não pôde ser preparada para a exportação.')
+    image.src = await blobToDataUrl(await response.blob())
+    await waitForImage(image)
+  }))
+}
+
 async function render(slide: TweetSlide) {
-  const node = document.createElement('div'); node.className = 'export-host'; document.body.appendChild(node)
-  const { createRoot } = await import('react-dom/client'); const { TweetCard } = await import('../components/TweetCard/TweetCard'); const root = createRoot(node)
-  root.render(<TweetCard slide={slide} exportMode />)
-  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
-  const dataUrl = await toPng(node.firstElementChild as HTMLElement, { width: 1080, height: 1350, pixelRatio: 1, cacheBust: false, backgroundColor: '#050505' })
-  root.unmount(); node.remove(); return dataUrl
+  const node = document.createElement('div')
+  node.className = 'export-host'
+  document.body.appendChild(node)
+  const { createRoot } = await import('react-dom/client')
+  const { flushSync } = await import('react-dom')
+  const { TweetCard } = await import('../components/TweetCard/TweetCard')
+  const root = createRoot(node)
+
+  try {
+    flushSync(() => root.render(<TweetCard slide={slide} exportMode />))
+    const card = node.firstElementChild as HTMLElement
+    await nextPaint()
+    // The PNG renderer runs on a cloned DOM. Embed every image first so local
+    // uploads, the fixed avatar and the verification badge survive that clone.
+    await inlineImages(card)
+    await nextPaint()
+    return await toPng(card, { width: 1080, height: 1350, pixelRatio: 1, cacheBust: false, backgroundColor: '#050505' })
+  } finally {
+    root.unmount()
+    node.remove()
+  }
 }
 function download(blob: Blob, name: string) { const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = name; link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 1000) }
 type SavePicker = { createWritable: () => Promise<{ write: (data: Blob) => Promise<void>; close: () => Promise<void> }> }
