@@ -3,6 +3,7 @@ import JSZip from 'jszip'
 import type { TweetSlide } from '../types/project'
 
 const fileName = (index: number) => `inest-tweet-slide-${String(index + 1).padStart(2, '0')}.png`
+const backgroundForTheme = (theme: TweetSlide['theme']) => theme === 'light' ? '#F5F7FA' : '#050505'
 
 const nextPaint = () => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
 
@@ -147,7 +148,15 @@ async function render(slide: TweetSlide) {
     // uploads, the fixed avatar and the verification badge survive that clone.
     await inlineImages(card)
     await nextPaint()
-    const canvas = await toCanvas(card, { width: 1080, height: 1350, pixelRatio: 1, cacheBust: false, backgroundColor: '#050505' })
+    const canvas = await toCanvas(card, {
+      width: 1080,
+      height: 1350,
+      pixelRatio: 1,
+      cacheBust: false,
+      // html-to-image applies this to both the cloned root and final canvas.
+      // It must therefore always match the active TweetCard theme.
+      backgroundColor: backgroundForTheme(slide.theme),
+    })
     // Safari may omit <img> elements while turning a foreignObject into PNG.
     // Paint the already-loaded originals over that canvas as a native fallback.
     drawExportImages(canvas, card)
