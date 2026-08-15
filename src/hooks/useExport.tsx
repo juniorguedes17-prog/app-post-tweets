@@ -1,4 +1,4 @@
-import { toPng } from 'html-to-image'
+import { toCanvas } from 'html-to-image'
 import JSZip from 'jszip'
 import type { TweetSlide } from '../types/project'
 
@@ -50,6 +50,86 @@ async function inlineImages(card: HTMLElement) {
   }))
 }
 
+type Rect = { x: number; y: number; width: number; height: number }
+
+function relativeRect(element: HTMLElement, card: HTMLElement): Rect {
+  const bounds = element.getBoundingClientRect()
+  const cardBounds = card.getBoundingClientRect()
+  return { x: bounds.left - cardBounds.left, y: bounds.top - cardBounds.top, width: bounds.width, height: bounds.height }
+}
+
+function roundedRect(context: CanvasRenderingContext2D, { x, y, width, height }: Rect, radius: number) {
+  const r = Math.min(radius, width / 2, height / 2)
+  context.beginPath()
+  context.moveTo(x + r, y)
+  context.lineTo(x + width - r, y)
+  context.quadraticCurveTo(x + width, y, x + width, y + r)
+  context.lineTo(x + width, y + height - r)
+  context.quadraticCurveTo(x + width, y + height, x + width - r, y + height)
+  context.lineTo(x + r, y + height)
+  context.quadraticCurveTo(x, y + height, x, y + height - r)
+  context.lineTo(x, y + r)
+  context.quadraticCurveTo(x, y, x + r, y)
+  context.closePath()
+}
+
+function drawCover(context: CanvasRenderingContext2D, image: HTMLImageElement, width: number, height: number) {
+  const sourceWidth = image.naturalWidth
+  const sourceHeight = image.naturalHeight
+  if (!sourceWidth || !sourceHeight) return
+  const scale = Math.max(width / sourceWidth, height / sourceHeight)
+  const drawWidth = sourceWidth * scale
+  const drawHeight = sourceHeight * scale
+  context.drawImage(image, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight)
+}
+
+function transformValues(image: HTMLImageElement) {
+  const transform = getComputedStyle(image).transform
+  const values = transform.match(/^matrix\\((.+)\\)$/)?.[1].split(',').map(Number)
+  return values?.length === 6 ? values : [1, 0, 0, 1, 0, 0]
+}
+
+function drawExportImages(canvas: HTMLCanvasElement, card: HTMLElement) {
+  const context = canvas.getContext('2d')
+  if (!context) throw new Error('Não foi possível finalizar a imagem exportada.')
+
+  const avatar = card.querySelector<HTMLImageElement>('.avatar-wrap img')
+  if (avatar) {
+    const frame = relativeRect(avatar.parentElement as HTMLElement, card)
+    context.save()
+    context.beginPath()
+    context.arc(frame.x + frame.width / 2, frame.y + frame.height / 2, frame.width / 2, 0, Math.PI * 2)
+    context.clip()
+    context.translate(frame.x, frame.y)
+    drawCover(context, avatar, frame.width, frame.height)
+    context.restore()
+  }
+
+  const media = card.querySelector<HTMLElement>('.tweet-media')
+  const mediaFrame = media ? relativeRect(media, card) : null
+  if (!media || !mediaFrame) return
+
+  card.querySelectorAll<HTMLImageElement>('.media-image img').forEach(image => {
+    const frameElement = image.parentElement as HTMLElement
+    const frame = relativeRect(frameElement, card)
+    const style = getComputedStyle(image)
+    const [a, b, c, d, e, f] = transformValues(image)
+    const [originX = 0, originY = 0] = style.transformOrigin.split(' ').map(value => Number.parseFloat(value))
+
+    context.save()
+    roundedRect(context, mediaFrame, Number.parseFloat(getComputedStyle(media).borderRadius) || 0)
+    context.clip()
+    context.beginPath()
+    context.rect(frame.x, frame.y, frame.width, frame.height)
+    context.clip()
+    context.translate(frame.x + originX, frame.y + originY)
+    context.transform(a, b, c, d, e, f)
+    context.translate(-originX, -originY)
+    drawCover(context, image, frame.width, frame.height)
+    context.restore()
+  })
+}
+
 async function render(slide: TweetSlide) {
   const node = document.createElement('div')
   node.className = 'export-host'
@@ -67,7 +147,11 @@ async function render(slide: TweetSlide) {
     // uploads, the fixed avatar and the verification badge survive that clone.
     await inlineImages(card)
     await nextPaint()
-    return await toPng(card, { width: 1080, height: 1350, pixelRatio: 1, cacheBust: false, backgroundColor: '#050505' })
+    const canvas = await toCanvas(card, { width: 1080, height: 1350, pixelRatio: 1, cacheBust: false, backgroundColor: '#050505' })
+    // Safari may omit <img> elements while turning a foreignObject into PNG.
+    // Paint the already-loaded originals over that canvas as a native fallback.
+    drawExportImages(canvas, card)
+    return canvas.toDataURL('image/png')
   } finally {
     root.unmount()
     node.remove()
