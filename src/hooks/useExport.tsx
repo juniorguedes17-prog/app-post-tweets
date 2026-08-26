@@ -1,6 +1,6 @@
 import { toCanvas } from 'html-to-image'
 import JSZip from 'jszip'
-import type { TweetSlide } from '../types/project'
+import { DEFAULT_AVATAR_SRC, type TweetSlide } from '../types/project'
 
 const fileName = (index: number) => `inest-tweet-slide-${String(index + 1).padStart(2, '0')}.png`
 const backgroundForTheme = (theme: TweetSlide['theme']) => theme === 'light' ? '#F5F7FA' : '#050505'
@@ -131,7 +131,7 @@ function drawExportImages(canvas: HTMLCanvasElement, card: HTMLElement) {
   })
 }
 
-async function render(slide: TweetSlide) {
+async function render(slide: TweetSlide, avatarSrc = DEFAULT_AVATAR_SRC) {
   const node = document.createElement('div')
   node.className = 'export-host'
   document.body.appendChild(node)
@@ -141,7 +141,7 @@ async function render(slide: TweetSlide) {
   const root = createRoot(node)
 
   try {
-    flushSync(() => root.render(<TweetCard slide={slide} exportMode />))
+    flushSync(() => root.render(<TweetCard slide={slide} exportMode avatarSrc={avatarSrc} />))
     const card = node.firstElementChild as HTMLElement
     await nextPaint()
     // The PNG renderer runs on a cloned DOM. Embed every image first so local
@@ -178,7 +178,7 @@ async function saveToComputer(blob: Blob, name: string, type: string) {
   } catch (error) { if ((error as DOMException).name !== 'AbortError') throw error }
 }
 export function useExport() {
-  const exportOne = async (slide: TweetSlide, index: number, destination: 'save' | 'gallery' | 'share' = 'save') => { const dataUrl = await render(slide); const blob = await (await fetch(dataUrl)).blob(); const file = new File([blob], fileName(index), { type: 'image/png' }); if ((destination === 'gallery' || destination === 'share') && navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: 'iNest Tweet Card' }); return } await saveToComputer(blob, file.name, file.type) }
-  const exportAll = async (slides: TweetSlide[]) => { const zip = new JSZip(); for (let index = 0; index < slides.length; index++) { const dataUrl = await render(slides[index]); zip.file(fileName(index), dataUrl.split(',')[1], { base64: true }) } await saveToComputer(await zip.generateAsync({ type: 'blob' }), 'inest-tweet-carousel.zip', 'application/zip') }
+  const exportOne = async (slide: TweetSlide, index: number, destination: 'save' | 'gallery' | 'share' = 'save', avatarSrc = DEFAULT_AVATAR_SRC) => { const dataUrl = await render(slide, avatarSrc); const blob = await (await fetch(dataUrl)).blob(); const file = new File([blob], fileName(index), { type: 'image/png' }); if ((destination === 'gallery' || destination === 'share') && navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: 'iNest Tweet Card' }); return } await saveToComputer(blob, file.name, file.type) }
+  const exportAll = async (slides: TweetSlide[], originalIndexes?: number[], avatarSrc = DEFAULT_AVATAR_SRC) => { const zip = new JSZip(); for (let index = 0; index < slides.length; index++) { const dataUrl = await render(slides[index], avatarSrc); zip.file(fileName(originalIndexes?.[index] ?? index), dataUrl.split(',')[1], { base64: true }) } await saveToComputer(await zip.generateAsync({ type: 'blob' }), 'inest-tweet-carousel.zip', 'application/zip') }
   return { exportOne, exportAll }
 }
