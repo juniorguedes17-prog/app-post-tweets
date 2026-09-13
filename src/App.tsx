@@ -5,9 +5,10 @@ import { SlideNavigator } from './components/Slides/SlideNavigator'
 import { clearProject, loadProject, saveProject } from './hooks/useProjectStorage'
 import { useExport } from './hooks/useExport'
 import { blankSlide, DEFAULT_AVATAR_SRC, newProject, type TweetProject, type TweetSlide } from './types/project'
+import { CreativeStudioApp } from './creative-studio/CreativeStudioApp'
 type Tab = 'content' | 'media' | 'preview' | 'slides'
 
-export default function App() {
+function TweetCardApp() {
   const [project, setProject] = useState<TweetProject>(newProject)
   const [ready, setReady] = useState(false); const [tab, setTab] = useState<Tab>('content'); const [exporting, setExporting] = useState(false); const [previewZoom, setPreviewZoom] = useState(0.9); const [selectedExportIds, setSelectedExportIds] = useState<Set<string>>(() => new Set())
   const { exportOne, exportAll } = useExport()
@@ -47,4 +48,41 @@ export default function App() {
     </div>
     <label className="preview-zoom-control">Escala do preview <input aria-label="Escala do preview" type="range" min="0.7" max="1" step="0.05" value={previewZoom} onChange={event => setPreviewZoom(Number(event.target.value))} /><output>{Math.round(previewZoom * 100)}%</output></label>
   </main>
+}
+
+type Workspace = 'tweet-card' | 'creative-studio'
+const ACTIVE_WORKSPACE_KEY = 'inest-active-workspace'
+
+function restoreWorkspace(): Workspace {
+  const saved = sessionStorage.getItem(ACTIVE_WORKSPACE_KEY)
+  return saved === 'creative-studio' || saved === 'tweet-card' ? saved : 'tweet-card'
+}
+
+export default function App() {
+  const [workspace, setWorkspace] = useState<Workspace>(restoreWorkspace)
+  useEffect(() => {
+    sessionStorage.setItem(ACTIVE_WORKSPACE_KEY, workspace)
+    console.info('[creative-observability]', 'workspace:active', { workspace })
+  }, [workspace])
+  return <div className="inest-workspace">
+    <nav className="inest-workspace-switcher" aria-label="iNest creation workspace">
+      <button
+        type="button"
+        aria-pressed={workspace === 'tweet-card'}
+        onClick={() => setWorkspace('tweet-card')}
+      >
+        Tweet Card
+      </button>
+      <button
+        type="button"
+        aria-pressed={workspace === 'creative-studio'}
+        onClick={() => setWorkspace('creative-studio')}
+      >
+        Creative Studio
+      </button>
+    </nav>
+    <div className="inest-workspace-content">
+      {workspace === 'tweet-card' ? <TweetCardApp /> : <CreativeStudioApp />}
+    </div>
+  </div>
 }

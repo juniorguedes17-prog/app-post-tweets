@@ -28,6 +28,23 @@ type GatewayResponse<T> = {
   metadata: GenerationMetadata
 } & T
 
+type CreativeEngineRequestEvent = {
+  requestId: string
+  pathname: string
+  active: boolean
+  durationMs?: number
+  status?: number
+  error?: { name: string; message: string }
+}
+
+function reportRequest(event: 'start' | 'success' | 'error', details: CreativeEngineRequestEvent) {
+  const payload = { event, ...details }
+  console.info('[creative-observability]', 'creative-engine:request', payload)
+  window.dispatchEvent(new CustomEvent<CreativeEngineRequestEvent>('inest:creative-engine-request', {
+    detail: payload,
+  }))
+}
+
 async function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -75,19 +92,41 @@ export class OpenAICreativeEngineProvider implements CreativeEngineProvider {
   }
 
   private async request<T>(pathname: string, body: unknown): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${pathname}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    const payload = await response.json().catch(() => ({}))
-    if (!response.ok) {
-      throw new CreativeEngineGatewayError(
-        typeof payload.error === 'string' ? payload.error : 'Creative Engine request failed.',
-        response.status,
-      )
+    const requestId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${pathname}`
+    const startedAt = performance.now()
+    reportRequest('start', { requestId, pathname, active: true })
+    try {
+      const response = await fetch(`${this.baseUrl}${pathname}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new CreativeEngineGatewayError(
+          typeof payload.error === 'string' ? payload.error : 'Creative Engine request failed.',
+          response.status,
+        )
+      }
+      reportRequest('success', {
+        requestId,
+        pathname,
+        active: false,
+        status: response.status,
+        durationMs: Math.round(performance.now() - startedAt),
+      })
+      return payload as T
+    } catch (cause) {
+      const error = cause instanceof Error ? cause : new Error(String(cause))
+      reportRequest('error', {
+        requestId,
+        pathname,
+        active: false,
+        durationMs: Math.round(performance.now() - startedAt),
+        error: { name: error.name, message: error.message },
+      })
+      throw cause
     }
-    return payload as T
   }
 
   private async userReferences(input: CreativeEngineInput) {
