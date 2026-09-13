@@ -119,7 +119,7 @@ export const compositionPlanSchema = {
           assetId: { type: ['string', 'null'] },
           fontFamily: { type: ['string', 'null'] },
           fontWeight: { type: ['number', 'null'] },
-          fontSize: { type: ['number', 'null'] },
+          fontSize: { type: ['number', 'null'], minimum: 12, maximum: 512 },
           lineHeight: { type: ['number', 'null'] },
           letterSpacing: { type: ['number', 'null'] },
           textAlign: { type: ['string', 'null'], enum: ['left', 'center', 'right', null] },

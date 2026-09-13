@@ -10,6 +10,23 @@ import { resolveUgcGrammar } from './ugcGrammar.mjs'
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, Number(value) || 0))
 
+/** Text font sizes are CSS/canvas pixels, never normalized scene coordinates. */
+export const MIN_CANVAS_TEXT_FONT_SIZE = 12
+export const MAX_CANVAS_TEXT_FONT_SIZE = 512
+
+export function normalizeCanvasTextFontSize(value, semanticRole = 'text') {
+  const fontSize = Number(value)
+  if (!Number.isFinite(fontSize) || fontSize < MIN_CANVAS_TEXT_FONT_SIZE || fontSize > MAX_CANVAS_TEXT_FONT_SIZE) {
+    const error = new Error(
+      `Creative Engine returned an unusable ${semanticRole} fontSize. Expected ${MIN_CANVAS_TEXT_FONT_SIZE}..${MAX_CANVAS_TEXT_FONT_SIZE} canvas pixels.`,
+    )
+    error.statusCode = 422
+    error.code = 'invalid_scene_graph_typography'
+    throw error
+  }
+  return fontSize
+}
+
 function imageSize(canvas) {
   if (canvas.width === canvas.height) return { size: '1024x1024', width: 1024, height: 1024 }
   if (canvas.height > canvas.width) return { size: '1024x1536', width: 1024, height: 1536 }
@@ -38,6 +55,7 @@ function normalizeElement(raw, context) {
   const { canvas, elementId, assetIds, typography, palette } = context
   const base = baseElement(raw, canvas, elementId)
   if (raw.type === 'text') {
+    const fontSize = normalizeCanvasTextFontSize(raw.fontSize, raw.semanticRole)
     return {
       ...base,
       type: 'text',
@@ -45,7 +63,7 @@ function normalizeElement(raw, context) {
       style: {
         fontFamily: raw.fontFamily || typography.body.fontFamily,
         fontWeight: clamp(raw.fontWeight ?? typography.body.fontWeight, 100, 900),
-        fontSize: Math.max(1, Number(raw.fontSize) || 32),
+        fontSize,
         lineHeight: Math.max(0.1, Number(raw.lineHeight) || typography.body.lineHeight || 1.2),
         letterSpacing: Number(raw.letterSpacing) || 0,
         textAlign: raw.textAlign || 'left',
@@ -185,6 +203,7 @@ function engineInstructions(kind) {
     'You are the iNest Creative Engine producing an editable scene graph, never a flattened poster.',
     'Apply Native Instagram + Editorial UGC + Minimal + Raw grammar structurally.',
     'Use normalized 0..1 coordinates and dimensions.',
+    `Use real canvas/CSS pixels for every text fontSize (${MIN_CANVAS_TEXT_FONT_SIZE}..${MAX_CANVAS_TEXT_FONT_SIZE}), never normalized 0..1 values.`,
     'Preserve supplied real asset IDs whenever suitable; never request recreation of a supplied product or logo.',
     'Request at most one generated photographic asset and reference its request id from visual elements.',
     'Typography and CTA belong in text elements, never inside generated imagery.',
