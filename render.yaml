@@ -18,4 +18,4 @@ services:
       - key: OPENAI_REQUEST_TIMEOUT_MS
         value: 90000
       - key: ALLOWED_ORIGINS
-        sync: false
+        value: http://localhost:5173,http://127.0.0.1:5173

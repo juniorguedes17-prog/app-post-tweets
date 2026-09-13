@@ -9,7 +9,7 @@ const serverDirectory = path.dirname(fileURLToPath(import.meta.url))
 const staticRoot = path.resolve(serverDirectory, '../dist')
 const port = Number(process.env.PORT) || 10000
 const allowedOrigins = new Set(
-  (process.env.ALLOWED_ORIGINS || 'http://localhost:5173')
+  (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean),
