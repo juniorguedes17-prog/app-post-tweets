@@ -91,7 +91,7 @@ async function addImmutableRevision<
     }
   }
 
-  await revisions.add(revision)
+  await revisions.add(revision, revision.id)
 }
 
 function assertBundleConsistency(bundle: CreativeProjectBundle): void {
@@ -123,25 +123,25 @@ export class CreativeStudioRepository {
     const db = await this.database
     const transaction = db.transaction(documentStores, 'readwrite')
 
-    await transaction.objectStore('projects').put(bundle.project)
-    await transaction.objectStore('briefs').put(bundle.brief)
-    await transaction.objectStore('documents').put(bundle.document)
-    await transaction.objectStore('compositions').put(bundle.composition)
+    await transaction.objectStore('projects').put(bundle.project, bundle.project.id)
+    await transaction.objectStore('briefs').put(bundle.brief, bundle.brief.id)
+    await transaction.objectStore('documents').put(bundle.document, bundle.document.id)
+    await transaction.objectStore('compositions').put(bundle.composition, bundle.composition.id)
 
     const revisions = transaction.objectStore('composition-revisions')
     await addImmutableRevision(revisions, bundle.currentRevision)
 
     if (bundle.brandProfile) {
-      await transaction.objectStore('brand-profiles').put(bundle.brandProfile)
+      await transaction.objectStore('brand-profiles').put(bundle.brandProfile, bundle.brandProfile.id)
     }
     for (const asset of bundle.assets ?? []) {
-      await transaction.objectStore('assets').put(asset)
+      await transaction.objectStore('assets').put(asset, asset.id)
     }
     for (const reference of bundle.references ?? []) {
-      await transaction.objectStore('references').put(reference)
+      await transaction.objectStore('references').put(reference, reference.id)
     }
     for (const direction of bundle.directions ?? []) {
-      await transaction.objectStore('directions').put(direction)
+      await transaction.objectStore('directions').put(direction, direction.id)
     }
 
     await transaction.done
@@ -162,23 +162,23 @@ export class CreativeStudioRepository {
         `Composition "${composition.id}" must point to an existing revision from the same composition.`,
       )
     }
-    await db.put('compositions', composition)
+    await db.put('compositions', composition, composition.id)
   }
 
   async saveAsset(asset: CreativeAsset, bytes?: Blob): Promise<void> {
     const db = await this.database
     if (!bytes) {
-      await db.put('assets', asset)
+      await db.put('assets', asset, asset.id)
       return
     }
 
     const transaction = db.transaction(['assets', 'asset-bytes'], 'readwrite')
-    await transaction.objectStore('assets').put(asset)
+    await transaction.objectStore('assets').put(asset, asset.id)
     await transaction.objectStore('asset-bytes').put({
       assetId: asset.id,
       bytes,
       updatedAt: asset.createdAt,
-    })
+    }, asset.id)
     await transaction.done
   }
 
@@ -192,13 +192,13 @@ export class CreativeStudioRepository {
     }
     const db = await this.database
     const transaction = db.transaction(['assets', 'asset-bytes', 'documents'], 'readwrite')
-    await transaction.objectStore('assets').put(asset)
+    await transaction.objectStore('assets').put(asset, asset.id)
     await transaction.objectStore('asset-bytes').put({
       assetId: asset.id,
       bytes,
       updatedAt: asset.createdAt,
-    })
-    await transaction.objectStore('documents').put(document)
+    }, asset.id)
+    await transaction.objectStore('documents').put(document, document.id)
     await transaction.done
   }
 
@@ -213,7 +213,7 @@ export class CreativeStudioRepository {
     const transaction = db.transaction(['assets', 'asset-bytes', 'documents'], 'readwrite')
     await transaction.objectStore('assets').delete(assetId)
     await transaction.objectStore('asset-bytes').delete(assetId)
-    await transaction.objectStore('documents').put(document)
+    await transaction.objectStore('documents').put(document, document.id)
     await transaction.done
   }
 
@@ -234,14 +234,14 @@ export class CreativeStudioRepository {
       ['assets', 'asset-bytes', 'references', 'documents'],
       'readwrite',
     )
-    await transaction.objectStore('assets').put(asset)
+    await transaction.objectStore('assets').put(asset, asset.id)
     await transaction.objectStore('asset-bytes').put({
       assetId: asset.id,
       bytes,
       updatedAt: asset.createdAt,
-    })
-    await transaction.objectStore('references').put(reference)
-    await transaction.objectStore('documents').put(document)
+    }, asset.id)
+    await transaction.objectStore('references').put(reference, reference.id)
+    await transaction.objectStore('documents').put(document, document.id)
     await transaction.done
   }
 
@@ -263,7 +263,7 @@ export class CreativeStudioRepository {
     await transaction.objectStore('references').delete(referenceId)
     await transaction.objectStore('assets').delete(assetId)
     await transaction.objectStore('asset-bytes').delete(assetId)
-    await transaction.objectStore('documents').put(document)
+    await transaction.objectStore('documents').put(document, document.id)
     await transaction.done
   }
 
@@ -290,18 +290,18 @@ export class CreativeStudioRepository {
     const directionStore = transaction.objectStore('directions')
     const existingDirections = await directionStore.index('by-project').getAll(document.projectId)
     for (const direction of existingDirections) await directionStore.delete(direction.id)
-    for (const direction of directions) await directionStore.put(direction)
-    await transaction.objectStore('briefs').put(brief)
-    await transaction.objectStore('documents').put(document)
+    for (const direction of directions) await directionStore.put(direction, direction.id)
+    await transaction.objectStore('briefs').put(brief, brief.id)
+    await transaction.objectStore('documents').put(document, document.id)
     for (const reference of references) {
-      await transaction.objectStore('references').put(reference)
+      await transaction.objectStore('references').put(reference, reference.id)
     }
     await transaction.done
   }
 
   async saveDocument(document: CreativeDocument): Promise<void> {
     const db = await this.database
-    await db.put('documents', document)
+    await db.put('documents', document, document.id)
   }
 
   async getDirections(projectId: CreativeProjectId): Promise<CreativeDirection[]> {
@@ -331,25 +331,25 @@ export class CreativeStudioRepository {
       'readwrite',
     )
     await addImmutableRevision(transaction.objectStore('composition-revisions'), revision)
-    await transaction.objectStore('compositions').put(composition)
-    await transaction.objectStore('documents').put(document)
+    await transaction.objectStore('compositions').put(composition, composition.id)
+    await transaction.objectStore('documents').put(document, document.id)
     for (const { asset, bytes } of generatedAssets) {
-      await transaction.objectStore('assets').put(asset)
+      await transaction.objectStore('assets').put(asset, asset.id)
       await transaction.objectStore('asset-bytes').put({
         assetId: asset.id,
         bytes,
         updatedAt: asset.createdAt,
-      })
+      }, asset.id)
     }
     for (const reference of references) {
-      await transaction.objectStore('references').put(reference)
+      await transaction.objectStore('references').put(reference, reference.id)
     }
     await transaction.done
   }
 
   async saveAssetBytes(record: CreativeAssetBytesRecord): Promise<void> {
     const db = await this.database
-    await db.put('asset-bytes', record)
+    await db.put('asset-bytes', record, record.assetId)
   }
 
   async getAsset(assetId: CreativeAssetId): Promise<CreativeAsset | undefined> {
@@ -362,7 +362,7 @@ export class CreativeStudioRepository {
 
   async saveWorkingState(workingState: CreativeWorkingState): Promise<void> {
     const db = await this.database
-    await db.put('working-states', workingState)
+    await db.put('working-states', workingState, workingState.documentId)
   }
 
   async getWorkingState(documentId: CreativeDocumentId): Promise<CreativeWorkingState | undefined> {
