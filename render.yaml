@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: inest-creative-engine
+    runtime: node
+    rootDir: .
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
+    startCommand: node server/index.mjs
+    healthCheckPath: /api/creative/health
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_TEXT_MODEL
+        value: gpt-6-astra
+      - key: OPENAI_IMAGE_MODEL
+        value: gpt-image-2.5-sunburst
+      - key: OPENAI_IMAGE_QUALITY
+        value: low
+      - key: ALLOWED_ORIGINS
+        sync: false

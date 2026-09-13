@@ -438,6 +438,7 @@ export function ElementInspector({
   const positionLocked = isScopeLocked(lockedScopes, 'position')
   const dimensionsLocked = isScopeLocked(lockedScopes, 'dimensions')
   const elementLocked = isScopeLocked(lockedScopes, 'element')
+  const appearanceLocked = isScopeLocked(lockedScopes, 'style')
   const lockableScopes = getLockableScopes(element)
 
   return (
@@ -482,7 +483,7 @@ export function ElementInspector({
           <NumberField
             label="Rotation"
             value={element.rotation}
-            disabled={elementLocked}
+            disabled={appearanceLocked}
             onChange={(rotation) => updateBase({ rotation })}
           />
           <NumberField
@@ -491,7 +492,7 @@ export function ElementInspector({
             min={0}
             max={1}
             step={0.05}
-            disabled={elementLocked}
+            disabled={appearanceLocked}
             onChange={(opacity) => updateBase({ opacity: Math.min(1, Math.max(0, opacity)) })}
           />
         </div>

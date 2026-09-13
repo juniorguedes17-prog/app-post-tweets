@@ -3,7 +3,8 @@ import type { BrandOverrides, BrandProfile } from '../domain/brandProfile'
 import type { CanvasSpec } from '../domain/canvas'
 import type { CreativeAsset } from '../domain/creativeAsset'
 import type { CompositionRevision } from '../domain/composition'
-import type { CreativeAssetId } from '../domain/ids'
+import type { CreativeAssetId, ElementLockId } from '../domain/ids'
+import type { ElementLock, InvariantValidation } from '../domain/locks'
 import type { CompositionElement } from '../domain/sceneGraph'
 import { CreativeCanvas } from '../renderer/CreativeCanvas'
 import { resolveEditorPalette, resolveEditorTypography } from './brandContext'
@@ -20,6 +21,10 @@ export type CreativeStudioEditorProps = {
   brandOverrides?: BrandOverrides
   resolveAssetUrl?: (assetId: CreativeAssetId) => string | undefined
   createElementId?: ElementIdFactory
+  locks?: ElementLock[]
+  createLockId?: () => ElementLockId
+  onLocksChange?: (locks: ElementLock[]) => void
+  onInvariantViolation?: (validation: InvariantValidation) => void
   onWorkingElementsChange?: (elements: CompositionElement[]) => void
 }
 
@@ -31,11 +36,19 @@ export function CreativeStudioEditor({
   brandOverrides,
   resolveAssetUrl,
   createElementId,
+  locks,
+  createLockId,
+  onLocksChange,
+  onInvariantViolation,
   onWorkingElementsChange,
 }: CreativeStudioEditorProps) {
   const editor = useCreativeEditor({
     revision,
     ...(createElementId ? { createElementId } : {}),
+    ...(locks !== undefined ? { locks } : {}),
+    ...(createLockId ? { createLockId } : {}),
+    ...(onLocksChange ? { onLocksChange } : {}),
+    ...(onInvariantViolation ? { onInvariantViolation } : {}),
     ...(onWorkingElementsChange ? { onWorkingElementsChange } : {}),
   })
   const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false)
@@ -66,6 +79,11 @@ export function CreativeStudioEditor({
         : [],
     [typography],
   )
+  const selectedLockedScopes = editor.selectedElement
+    ? editor.lockedScopesForElement(editor.selectedElement.id)
+    : []
+  const selectedElementFullyLocked = selectedLockedScopes.includes('element')
+  const selectedElementHasLocks = selectedLockedScopes.length > 0
 
   return (
     <section className="creative-studio-editor" aria-label="Creative Studio editor">
@@ -85,21 +103,21 @@ export function CreativeStudioEditor({
         <div className="creative-studio-editor__actions" aria-label="Element actions">
           <button
             type="button"
-            disabled={!editor.selectedElement}
+            disabled={!editor.selectedElement || selectedElementFullyLocked}
             onClick={() => editor.moveSelectedLayer('backward')}
           >
             Send backward
           </button>
           <button
             type="button"
-            disabled={!editor.selectedElement}
+            disabled={!editor.selectedElement || selectedElementFullyLocked}
             onClick={() => editor.moveSelectedLayer('forward')}
           >
             Bring forward
           </button>
           <button
             type="button"
-            disabled={!editor.selectedElement}
+            disabled={!editor.selectedElement || selectedElementHasLocks}
             onClick={editor.duplicateSelected}
           >
             Duplicate
@@ -113,6 +131,11 @@ export function CreativeStudioEditor({
           </button>
         </div>
       </header>
+      {!editor.lastInvariantValidation?.valid ? (
+        <p className="creative-studio-editor__lock-alert" role="alert">
+          A protected element cannot be changed while its applicable lock is active.
+        </p>
+      ) : null}
 
       <div className="creative-studio-editor__workspace">
         <main className="creative-studio-editor__stage">
@@ -124,6 +147,7 @@ export function CreativeStudioEditor({
             onSelectElement={editor.selectElement}
             onPreviewElements={editor.previewElements}
             onFinalizeInteraction={editor.finalizePreview}
+            isElementScopeLocked={editor.isElementScopeLocked}
           />
         </main>
         {editor.selectedElement ? (
@@ -162,6 +186,8 @@ export function CreativeStudioEditor({
             assets={assets}
             fontFamilies={fontFamilies}
             palette={palette}
+            lockedScopes={selectedLockedScopes}
+            onToggleLock={editor.toggleSelectedLock}
             onChange={editor.updateElement}
           />
         </div>

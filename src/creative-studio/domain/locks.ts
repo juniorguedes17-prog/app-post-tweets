@@ -15,11 +15,20 @@ export type LockScope =
 
 export type Point = { x: number; y: number }
 export type Dimensions = { width: number; height: number }
-export type ElementStyleSnapshot =
-  | Partial<TextElementStyle>
-  | Partial<ImageElementStyle>
-  | Partial<ShapeElementStyle>
-  | Partial<AnnotationElementStyle>
+/** Presentation properties live on every scene element and are protected by a style lock. */
+export type ElementPresentationSnapshot = {
+  rotation?: number
+  opacity?: number
+  visible?: boolean
+}
+
+export type ElementStyleSnapshot = ElementPresentationSnapshot &
+  (
+    | Partial<TextElementStyle>
+    | Partial<ImageElementStyle>
+    | Partial<ShapeElementStyle>
+    | Partial<AnnotationElementStyle>
+  )
 
 export type ElementLockSnapshot = {
   content?: string
@@ -57,4 +66,3 @@ export type InvariantValidation = {
   checkedRevisionId: CompositionRevisionId
   validatedAt: Timestamp
 }
-

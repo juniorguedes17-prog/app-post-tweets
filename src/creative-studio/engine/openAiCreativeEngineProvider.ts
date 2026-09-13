@@ -1,0 +1,185 @@
+import type { CreativeAsset } from '../domain/creativeAsset'
+import type {
+  CreativeEngineInput,
+  CreativeEngineProvider,
+  CreativeEngineResult,
+} from '../domain/creativeEngine'
+import type { CreativeDirection } from '../domain/creativeDirection'
+import type { CompositionRevision } from '../domain/composition'
+import type { CreativeAssetId } from '../domain/ids'
+import type { GenerationMetadata } from '../domain/generation'
+import type { ReferenceAnalysis, VisualReference } from '../domain/visualReference'
+import { validateLockedCandidate } from '../locks/lockEngine'
+import { locksForRefinementIntent } from './refinementIntents'
+import { assertValidEngineRevision } from './sceneGraphValidation'
+
+export type GeneratedAssetOutput = {
+  asset: CreativeAsset
+  bytes: Blob
+  metadata?: GenerationMetadata
+}
+
+export type OpenAICreativeEngineProviderOptions = {
+  baseUrl?: string
+  resolveAssetBytes?: (assetId: CreativeAssetId) => Promise<Blob | undefined>
+}
+
+type GatewayResponse<T> = {
+  metadata: GenerationMetadata
+} & T
+
+async function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(reader.error ?? new Error('Unable to encode reference image.'))
+    reader.readAsDataURL(blob)
+  })
+}
+
+function base64ToBlob(base64: string, mimeType: string): Blob {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
+  return new Blob([bytes], { type: mimeType })
+}
+
+export class CreativeEngineGatewayError extends Error {
+  constructor(message: string, readonly statusCode: number) {
+    super(message)
+    this.name = 'CreativeEngineGatewayError'
+  }
+}
+
+export class OpenAICreativeEngineProvider implements CreativeEngineProvider {
+  private readonly baseUrl: string
+  private readonly resolveAssetBytes?: OpenAICreativeEngineProviderOptions['resolveAssetBytes']
+  private generatedAssets: GeneratedAssetOutput[] = []
+  private referenceAnalyses = new Map<string, ReferenceAnalysis>()
+
+  constructor(options: OpenAICreativeEngineProviderOptions = {}) {
+    this.baseUrl = (options.baseUrl ?? import.meta.env.VITE_CREATIVE_ENGINE_URL ?? '').replace(/\/$/, '')
+    this.resolveAssetBytes = options.resolveAssetBytes
+  }
+
+  drainGeneratedAssets(): GeneratedAssetOutput[] {
+    const outputs = this.generatedAssets
+    this.generatedAssets = []
+    return outputs
+  }
+
+  drainReferenceAnalyses(): Map<string, ReferenceAnalysis> {
+    const analyses = this.referenceAnalyses
+    this.referenceAnalyses = new Map()
+    return analyses
+  }
+
+  private async request<T>(pathname: string, body: unknown): Promise<T> {
+    const response = await fetch(`${this.baseUrl}${pathname}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      throw new CreativeEngineGatewayError(
+        typeof payload.error === 'string' ? payload.error : 'Creative Engine request failed.',
+        response.status,
+      )
+    }
+    return payload as T
+  }
+
+  private async userReferences(input: CreativeEngineInput) {
+    return Promise.all((input.references ?? []).map(async (reference) => {
+      if (reference.analysis) return { ...reference }
+      const bytes = await this.resolveAssetBytes?.(reference.assetId)
+      return {
+        ...reference,
+        ...(bytes ? { imageDataUrl: await blobToDataUrl(bytes) } : {}),
+      }
+    }))
+  }
+
+  private retainAnalyses(items: Array<{ id: string; analysis: ReferenceAnalysis }> = []) {
+    for (const item of items) this.referenceAnalyses.set(item.id, item.analysis)
+  }
+
+  private retainGeneratedAssets(
+    items: Array<{ asset: CreativeAsset; base64: string; metadata?: GenerationMetadata }> = [],
+  ) {
+    this.generatedAssets.push(...items.map((item) => ({
+      asset: item.asset,
+      bytes: base64ToBlob(item.base64, item.asset.mimeType),
+      ...(item.metadata ? { metadata: item.metadata } : {}),
+    })))
+  }
+
+  async proposeDirections(
+    input: CreativeEngineInput,
+  ): Promise<CreativeEngineResult<CreativeDirection[]>> {
+    const response = await this.request<GatewayResponse<{
+      directions: CreativeDirection[]
+      referenceAnalyses?: Array<{ id: string; analysis: ReferenceAnalysis }>
+    }>>('/api/creative/directions', {
+      input,
+      userReferences: await this.userReferences(input),
+    })
+    if (response.directions.length !== 3) {
+      throw new Error('Creative Engine must return exactly three directions.')
+    }
+    this.retainAnalyses(response.referenceAnalyses)
+    return { output: response.directions, metadata: response.metadata }
+  }
+
+  private async compositionRequest(
+    pathname: '/api/creative/composition' | '/api/creative/refine',
+    input: CreativeEngineInput,
+  ): Promise<CreativeEngineResult<CompositionRevision>> {
+    if (!input.previousRevision) throw new Error('Composition generation requires a base revision.')
+    const response = await this.request<GatewayResponse<{
+      revision: CompositionRevision
+      generatedAssets?: Array<{ asset: CreativeAsset; base64: string; metadata?: GenerationMetadata }>
+      referenceAnalyses?: Array<{ id: string; analysis: ReferenceAnalysis }>
+    }>>(pathname, {
+      input,
+      userReferences: await this.userReferences(input),
+    })
+    this.retainGeneratedAssets(response.generatedAssets)
+    this.retainAnalyses(response.referenceAnalyses)
+    const allAssets = [...input.assets, ...this.generatedAssets.map((item) => item.asset)]
+    assertValidEngineRevision(response.revision, input.previousRevision, allAssets)
+    return { output: response.revision, metadata: response.metadata }
+  }
+
+  compose(input: CreativeEngineInput): Promise<CreativeEngineResult<CompositionRevision>> {
+    return this.compositionRequest('/api/creative/composition', input)
+  }
+
+  async refine(input: CreativeEngineInput): Promise<CreativeEngineResult<CompositionRevision>> {
+    if (!input.previousRevision) throw new Error('Refinement requires a previous revision.')
+    const effectiveLocks = locksForRefinementIntent(input)
+    const result = await this.compositionRequest('/api/creative/refine', {
+      ...input,
+      locks: effectiveLocks,
+    })
+    const validation = validateLockedCandidate(input.previousRevision, result.output, effectiveLocks)
+    if (!validation.valid) {
+      throw new Error(`Refinement violated ${validation.violations.length} protected invariant(s).`)
+    }
+    return result
+  }
+
+  async analyzeReference(
+    input: CreativeEngineInput,
+    reference: VisualReference,
+  ): Promise<CreativeEngineResult<ReferenceAnalysis>> {
+    const [payload] = await this.userReferences({ ...input, references: [reference] })
+    const response = await this.request<GatewayResponse<{ analysis: ReferenceAnalysis }>>(
+      '/api/creative/reference-analysis',
+      { reference: payload },
+    )
+    this.referenceAnalyses.set(reference.id, response.analysis)
+    return { output: response.analysis, metadata: response.metadata }
+  }
+}

@@ -1,8 +1,17 @@
 import type { IDBPObjectStore, StoreNames } from 'idb'
 import type { CreativeAsset } from '../domain/creativeAsset'
+import type { CreativeBrief } from '../domain/creativeBrief'
+import type { CreativeDirection } from '../domain/creativeDirection'
 import type { CreativeDocument } from '../domain/creativeDocument'
 import type { Composition, CompositionRevision } from '../domain/composition'
-import type { CompositionRevisionId, CreativeAssetId, CreativeDocumentId } from '../domain/ids'
+import type {
+  CompositionRevisionId,
+  CreativeAssetId,
+  CreativeDocumentId,
+  CreativeProjectId,
+  VisualReferenceId,
+} from '../domain/ids'
+import type { VisualReference } from '../domain/visualReference'
 import {
   openCreativeStudioDatabase,
   type CreativeAssetBytesRecord,
@@ -10,6 +19,19 @@ import {
   type CreativeWorkingState,
 } from './schema'
 import type { CreativeProjectBundle, RestoredCreativeDocument } from './types'
+
+export type GeneratedAssetRecord = {
+  asset: CreativeAsset
+  bytes: Blob
+}
+
+export type SaveCreativeEngineRevisionInput = {
+  composition: Composition
+  revision: CompositionRevision
+  document: CreativeDocument
+  generatedAssets?: GeneratedAssetRecord[]
+  references?: VisualReference[]
+}
 
 const documentStores = [
   'projects',
@@ -157,6 +179,171 @@ export class CreativeStudioRepository {
       bytes,
       updatedAt: asset.createdAt,
     })
+    await transaction.done
+  }
+
+  async saveAssetForDocument(
+    asset: CreativeAsset,
+    bytes: Blob,
+    document: CreativeDocument,
+  ): Promise<void> {
+    if (!document.assetIds.includes(asset.id)) {
+      throw new Error(`Document "${document.id}" must reference asset "${asset.id}".`)
+    }
+    const db = await this.database
+    const transaction = db.transaction(['assets', 'asset-bytes', 'documents'], 'readwrite')
+    await transaction.objectStore('assets').put(asset)
+    await transaction.objectStore('asset-bytes').put({
+      assetId: asset.id,
+      bytes,
+      updatedAt: asset.createdAt,
+    })
+    await transaction.objectStore('documents').put(document)
+    await transaction.done
+  }
+
+  async removeAssetFromDocument(
+    assetId: CreativeAssetId,
+    document: CreativeDocument,
+  ): Promise<void> {
+    if (document.assetIds.includes(assetId)) {
+      throw new Error(`Document "${document.id}" must detach asset "${assetId}" before removal.`)
+    }
+    const db = await this.database
+    const transaction = db.transaction(['assets', 'asset-bytes', 'documents'], 'readwrite')
+    await transaction.objectStore('assets').delete(assetId)
+    await transaction.objectStore('asset-bytes').delete(assetId)
+    await transaction.objectStore('documents').put(document)
+    await transaction.done
+  }
+
+  async saveReferenceForDocument(
+    reference: VisualReference,
+    asset: CreativeAsset,
+    bytes: Blob,
+    document: CreativeDocument,
+  ): Promise<void> {
+    if (reference.assetId !== asset.id || asset.kind !== 'reference') {
+      throw new Error('Visual reference and reference asset are inconsistent.')
+    }
+    if (!document.assetIds.includes(asset.id) || !document.referenceIds.includes(reference.id)) {
+      throw new Error(`Document "${document.id}" must reference the visual reference and its asset.`)
+    }
+    const db = await this.database
+    const transaction = db.transaction(
+      ['assets', 'asset-bytes', 'references', 'documents'],
+      'readwrite',
+    )
+    await transaction.objectStore('assets').put(asset)
+    await transaction.objectStore('asset-bytes').put({
+      assetId: asset.id,
+      bytes,
+      updatedAt: asset.createdAt,
+    })
+    await transaction.objectStore('references').put(reference)
+    await transaction.objectStore('documents').put(document)
+    await transaction.done
+  }
+
+  async removeReferenceFromDocument(
+    referenceId: VisualReferenceId,
+    assetId: CreativeAssetId,
+    document: CreativeDocument,
+  ): Promise<void> {
+    if (document.referenceIds.includes(referenceId) || document.assetIds.includes(assetId)) {
+      throw new Error(
+        `Document "${document.id}" must detach reference "${referenceId}" and its asset before removal.`,
+      )
+    }
+    const db = await this.database
+    const transaction = db.transaction(
+      ['assets', 'asset-bytes', 'references', 'documents'],
+      'readwrite',
+    )
+    await transaction.objectStore('references').delete(referenceId)
+    await transaction.objectStore('assets').delete(assetId)
+    await transaction.objectStore('asset-bytes').delete(assetId)
+    await transaction.objectStore('documents').put(document)
+    await transaction.done
+  }
+
+  async saveCreativeFlow(
+    brief: CreativeBrief,
+    document: CreativeDocument,
+    directions: CreativeDirection[],
+    references: VisualReference[] = [],
+  ): Promise<void> {
+    if (directions.length !== 3) {
+      throw new Error('P9 creative flow must persist exactly three directions.')
+    }
+    if (
+      brief.projectId !== document.projectId ||
+      directions.some((direction) => direction.projectId !== document.projectId)
+    ) {
+      throw new Error('Creative flow contains inconsistent project references.')
+    }
+    const db = await this.database
+    const transaction = db.transaction(
+      ['briefs', 'documents', 'directions', 'references'],
+      'readwrite',
+    )
+    const directionStore = transaction.objectStore('directions')
+    const existingDirections = await directionStore.index('by-project').getAll(document.projectId)
+    for (const direction of existingDirections) await directionStore.delete(direction.id)
+    for (const direction of directions) await directionStore.put(direction)
+    await transaction.objectStore('briefs').put(brief)
+    await transaction.objectStore('documents').put(document)
+    for (const reference of references) {
+      await transaction.objectStore('references').put(reference)
+    }
+    await transaction.done
+  }
+
+  async saveDocument(document: CreativeDocument): Promise<void> {
+    const db = await this.database
+    await db.put('documents', document)
+  }
+
+  async getDirections(projectId: CreativeProjectId): Promise<CreativeDirection[]> {
+    const db = await this.database
+    return db.getAllFromIndex('directions', 'by-project', projectId)
+  }
+
+  async saveCreativeEngineRevision({
+    composition,
+    revision,
+    document,
+    generatedAssets = [],
+    references = [],
+  }: SaveCreativeEngineRevisionInput): Promise<void> {
+    if (
+      revision.compositionId !== composition.id ||
+      composition.currentRevisionId !== revision.id ||
+      document.compositionId !== composition.id ||
+      document.currentRevisionId !== revision.id ||
+      generatedAssets.some(({ asset }) => !document.assetIds.includes(asset.id))
+    ) {
+      throw new Error('Creative Engine result contains inconsistent entity references.')
+    }
+    const db = await this.database
+    const transaction = db.transaction(
+      ['composition-revisions', 'compositions', 'documents', 'assets', 'asset-bytes', 'references'],
+      'readwrite',
+    )
+    await addImmutableRevision(transaction.objectStore('composition-revisions'), revision)
+    await transaction.objectStore('compositions').put(composition)
+    await transaction.objectStore('documents').put(document)
+    for (const { asset, bytes } of generatedAssets) {
+      await transaction.objectStore('assets').put(asset)
+      await transaction.objectStore('asset-bytes').put({
+        assetId: asset.id,
+        bytes,
+        updatedAt: asset.createdAt,
+      })
+    }
+    for (const reference of references) {
+      await transaction.objectStore('references').put(reference)
+    }
     await transaction.done
   }
 

@@ -43,28 +43,44 @@ function partialStyleMatches(
   return Object.entries(expected).every(([key, value]) => valuesMatch(value, received[key]))
 }
 
+function presentationStyle(element: CompositionElement): Record<string, unknown> {
+  return {
+    rotation: element.rotation,
+    opacity: element.opacity,
+    visible: element.visible,
+  }
+}
+
 function styleSnapshot(element: CompositionElement): ElementLockSnapshot['style'] | undefined {
-  if (element.type === 'text') return { ...element.style }
+  const presentation = presentationStyle(element)
+  if (element.type === 'text') return { ...presentation, ...element.style }
   if (isVisualElement(element)) {
     return {
+      ...presentation,
       fit: element.style.fit,
       borderRadius: element.style.borderRadius,
     }
   }
-  if (element.type === 'shape' || element.type === 'annotation') return { ...element.style }
-  return undefined
+  if (element.type === 'shape' || element.type === 'annotation') {
+    return { ...presentation, ...element.style }
+  }
+  return presentation
 }
 
 function styleForComparison(element: CompositionElement): Record<string, unknown> {
-  if (element.type === 'text') return element.style
+  const presentation = presentationStyle(element)
+  if (element.type === 'text') return { ...presentation, ...element.style }
   if (isVisualElement(element)) {
     return {
+      ...presentation,
       fit: element.style.fit,
       borderRadius: element.style.borderRadius,
     }
   }
-  if (element.type === 'shape' || element.type === 'annotation') return element.style
-  return {}
+  if (element.type === 'shape' || element.type === 'annotation') {
+    return { ...presentation, ...element.style }
+  }
+  return presentation
 }
 
 function contentForComparison(element: CompositionElement): string | undefined {

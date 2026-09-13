@@ -8,6 +8,7 @@ import {
 import type { CanvasSpec } from '../domain/canvas'
 import type { CreativeAssetId, CompositionElementId } from '../domain/ids'
 import type { CompositionElement } from '../domain/sceneGraph'
+import type { LockScope } from '../domain/locks'
 import {
   cloneCompositionElements,
   moveCompositionElement,
@@ -23,6 +24,10 @@ export type CreativeCanvasProps = {
   onSelectElement: (elementId?: CompositionElementId) => void
   onPreviewElements: (elements: CompositionElement[]) => void
   onFinalizeInteraction: (before: CompositionElement[]) => void
+  isElementScopeLocked?: (
+    elementId: CompositionElementId,
+    scope: Extract<LockScope, 'position' | 'dimensions'>,
+  ) => boolean
 }
 
 type CanvasInteraction = {
@@ -44,6 +49,7 @@ export function CreativeCanvas({
   onSelectElement,
   onPreviewElements,
   onFinalizeInteraction,
+  isElementScopeLocked,
 }: CreativeCanvasProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const interactionRef = useRef<CanvasInteraction | undefined>(undefined)
@@ -71,8 +77,10 @@ export function CreativeCanvas({
   ) => {
     if (event.button !== 0) return
     event.stopPropagation()
-    event.currentTarget.setPointerCapture(event.pointerId)
     onSelectElement(element.id)
+    const scope = mode === 'move' ? 'position' : 'dimensions'
+    if (isElementScopeLocked?.(element.id, scope)) return
+    event.currentTarget.setPointerCapture(event.pointerId)
     interactionRef.current = {
       pointerId: event.pointerId,
       mode,
