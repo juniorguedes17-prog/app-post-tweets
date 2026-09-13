@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": { "dev": "node --preserve-symlinks ./node_modules/vite/bin/vite.js", "build": "node ./node_modules/typescript/lib/_tsc.js -b && node ./node_modules/vite/bin/vite.js build && node scripts/prepare-hosting.mjs", "preview": "node --preserve-symlinks ./node_modules/vite/bin/vite.js preview" },
   "dependencies": {
-    "@fontsource/inter": "^5.2.6", "@fontsource/montserrat": "^5.2.6", "html-to-image": "^1.11.13", "idb": "^8.0.2", "jszip": "^3.10.1", "react": "^19.1.0", "react-dom": "^19.1.0"
+    "@fontsource/inter": "^5.2.6", "@fontsource/montserrat": "^5.2.6", "html-to-image": "^1.11.13", "idb": "^8.0.2", "jszip": "^3.10.1", "react": "^19.1.0", "react-dom": "^19.1.0", "workbox-window": "7.4.1"
   },
   "devDependencies": {
     "@types/react": "^19.1.2", "@types/react-dom": "^19.1.2", "@vitejs/plugin-react": "^5.0.0", "typescript": "~5.8.3", "vite": "^7.0.0", "vite-plugin-pwa": "^1.0.0"
