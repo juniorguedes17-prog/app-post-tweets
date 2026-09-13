@@ -57,6 +57,17 @@ export function CreativeStudioEditor({
     if (!editor.selectedElement) setMobileInspectorOpen(false)
   }, [editor.selectedElement])
 
+  useEffect(() => {
+    if (!editor.selectedElementId) return
+
+    const clearSelectionOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') editor.selectElement(undefined)
+    }
+
+    document.addEventListener('keydown', clearSelectionOnEscape)
+    return () => document.removeEventListener('keydown', clearSelectionOnEscape)
+  }, [editor.selectElement, editor.selectedElementId])
+
   const palette = useMemo(
     () => resolveEditorPalette(brandProfile, brandOverrides),
     [brandOverrides, brandProfile],
@@ -138,7 +149,15 @@ export function CreativeStudioEditor({
       ) : null}
 
       <div className="creative-studio-editor__workspace">
-        <main className="creative-studio-editor__stage">
+        <main
+          className="creative-studio-editor__stage"
+          onPointerDown={(event) => {
+            const target = event.target
+            if (target instanceof Element && !target.closest('.creative-studio-canvas')) {
+              editor.selectElement(undefined)
+            }
+          }}
+        >
           <CreativeCanvas
             canvas={canvas}
             elements={editor.elements}
