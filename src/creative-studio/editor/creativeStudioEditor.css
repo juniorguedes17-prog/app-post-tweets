@@ -376,6 +376,24 @@
   }
 }
 
+@media (pointer: coarse) {
+  .creative-studio-editor__actions button {
+    min-height: 44px;
+  }
+
+  .creative-studio-inspector__field input,
+  .creative-studio-inspector__field select {
+    min-height: 44px;
+  }
+
+  .creative-studio-scene-element__resize-handle {
+    right: calc(-18px * var(--creative-studio-inverse-scale));
+    bottom: calc(-18px * var(--creative-studio-inverse-scale));
+    width: calc(36px * var(--creative-studio-inverse-scale));
+    height: calc(36px * var(--creative-studio-inverse-scale));
+  }
+}
+
 @media (max-width: 900px) {
   .creative-studio-editor__workspace {
     grid-template-columns: 1fr;
