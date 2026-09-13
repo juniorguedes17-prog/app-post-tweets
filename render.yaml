@@ -15,5 +15,7 @@ services:
         value: gpt-image-2.5-sunburst
       - key: OPENAI_IMAGE_QUALITY
         value: low
+      - key: OPENAI_REQUEST_TIMEOUT_MS
+        value: 90000
       - key: ALLOWED_ORIGINS
         sync: false

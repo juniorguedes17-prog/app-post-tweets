@@ -3,7 +3,7 @@ import { readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { analyzeSingleReference, composeOrRefine } from './creativeEngine.mjs'
-import { imageModel, proposeDirections, textModel } from './openaiClient.mjs'
+import { imageModel, OPENAI_REQUEST_TIMEOUT_MS, proposeDirections, textModel } from './openaiClient.mjs'
 
 const serverDirectory = path.dirname(fileURLToPath(import.meta.url))
 const staticRoot = path.resolve(serverDirectory, '../dist')
@@ -57,6 +57,10 @@ function json(response, statusCode, payload, headers = {}) {
   response.end(JSON.stringify(payload))
 }
 
+function logGateway(event, fields = {}) {
+  console.info(JSON.stringify({ scope: 'gateway', event, ...fields }))
+}
+
 async function readJson(request) {
   const chunks = []
   let size = 0
@@ -104,6 +108,7 @@ async function handleApi(request, response, pathname, headers) {
       configured: Boolean(process.env.OPENAI_API_KEY),
       textModel,
       imageModel,
+      openAIRequestTimeoutMs: OPENAI_REQUEST_TIMEOUT_MS,
     }, headers)
     return
   }
@@ -162,18 +167,31 @@ async function serveStatic(response, pathname) {
   }
 }
 
-const server = createServer(async (request, response) => {
+export const server = createServer(async (request, response) => {
+  const startedAt = Date.now()
   let headers = {}
+  let pathname = 'unknown'
   try {
     const url = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`)
+    pathname = url.pathname
+    logGateway('request', { method: request.method, pathname })
     if (url.pathname.startsWith('/api/creative/')) {
       headers = corsHeaders(request)
       await handleApi(request, response, url.pathname, headers)
     } else {
       await serveStatic(response, url.pathname)
     }
+    logGateway('response', { method: request.method, pathname, durationMs: Date.now() - startedAt })
   } catch (cause) {
     const statusCode = Number(cause?.statusCode) || 500
+    logGateway('error', {
+      method: request.method,
+      pathname,
+      statusCode,
+      durationMs: Date.now() - startedAt,
+      errorName: cause instanceof Error ? cause.name : 'UnknownError',
+      code: cause?.code,
+    })
     json(response, statusCode, {
       error: cause instanceof Error ? cause.message : 'Unexpected gateway error.',
       ...(cause?.code ? { code: cause.code } : {}),

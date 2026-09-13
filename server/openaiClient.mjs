@@ -5,6 +5,20 @@ import { resolveUgcGrammar } from './ugcGrammar.mjs'
 
 export const textModel = process.env.OPENAI_TEXT_MODEL || 'gpt-6-astra'
 export const imageModel = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2.5-sunburst'
+export const OPENAI_REQUEST_TIMEOUT_MS = Number(process.env.OPENAI_REQUEST_TIMEOUT_MS) || 90_000
+
+export class OpenAIRequestTimeoutError extends Error {
+  constructor(timeoutMs, cause) {
+    super(`OpenAI request timed out after ${timeoutMs} ms.`, { cause })
+    this.name = 'OpenAIRequestTimeoutError'
+    this.statusCode = 504
+    this.code = 'openai_timeout'
+  }
+}
+
+function logUpstream(event, fields = {}) {
+  console.info(JSON.stringify({ scope: 'openai', event, ...fields }))
+}
 
 function apiKey() {
   const value = process.env.OPENAI_API_KEY
@@ -16,23 +30,53 @@ function apiKey() {
   return value
 }
 
-async function openAIRequest(pathname, body) {
-  const response = await fetch(`https://api.openai.com/v1${pathname}`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey()}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  })
-  const payload = await response.json().catch(() => ({}))
-  if (!response.ok) {
-    const error = new Error(payload?.error?.message || `OpenAI request failed with ${response.status}.`)
-    error.statusCode = response.status
-    error.code = payload?.error?.code
-    throw error
+export async function openAIRequest(
+  pathname,
+  body,
+  { fetchImpl = fetch, timeoutMs = OPENAI_REQUEST_TIMEOUT_MS } = {},
+) {
+  const controller = new AbortController()
+  const startedAt = Date.now()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+  logUpstream('request', { pathname, model: body?.model, timeoutMs })
+  try {
+    const response = await fetchImpl(`https://api.openai.com/v1${pathname}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey()}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+    const payload = await response.json().catch(() => ({}))
+    const durationMs = Date.now() - startedAt
+    logUpstream('response', { pathname, model: body?.model, statusCode: response.status, durationMs })
+    if (!response.ok) {
+      const error = new Error(payload?.error?.message || `OpenAI request failed with ${response.status}.`)
+      error.statusCode = response.status
+      error.code = payload?.error?.code
+      throw error
+    }
+    return payload
+  } catch (cause) {
+    const durationMs = Date.now() - startedAt
+    if (controller.signal.aborted) {
+      logUpstream('timeout', { pathname, model: body?.model, timeoutMs, durationMs })
+      throw new OpenAIRequestTimeoutError(timeoutMs, cause)
+    }
+    logUpstream('error', {
+      pathname,
+      model: body?.model,
+      durationMs,
+      errorName: cause instanceof Error ? cause.name : 'UnknownError',
+      statusCode: Number(cause?.statusCode) || undefined,
+      code: cause?.code,
+    })
+    throw cause
+  } finally {
+    clearTimeout(timeout)
   }
-  return payload
 }
 
 function responseText(response) {
