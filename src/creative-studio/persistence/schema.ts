@@ -9,6 +9,7 @@ import type { Composition, CompositionRevision } from '../domain/composition'
 import type {
   BrandProfileId,
   CompositionElementId,
+  ElementLockId,
   CompositionId,
   CompositionRevisionId,
   CreativeAssetId,
@@ -19,11 +20,12 @@ import type {
   VisualReferenceId,
 } from '../domain/ids'
 import type { CompositionElement } from '../domain/sceneGraph'
+import type { ElementLock } from '../domain/locks'
 import type { Timestamp } from '../domain/serialization'
 import type { VisualReference } from '../domain/visualReference'
 
 export const CREATIVE_STUDIO_DATABASE_NAME = 'inest-creative-studio'
-export const CREATIVE_STUDIO_DATABASE_VERSION = 1
+export const CREATIVE_STUDIO_DATABASE_VERSION = 2
 
 /** Binary data is intentionally isolated from CreativeAsset metadata and scene-graph elements. */
 export type CreativeAssetBytesRecord = {
@@ -96,6 +98,14 @@ export interface CreativeStudioDatabaseSchema extends DBSchema {
     value: CreativeWorkingState
     indexes: { 'by-project': CreativeProjectId }
   }
+  locks: {
+    key: ElementLockId
+    value: ElementLock
+    indexes: {
+      'by-composition': CompositionId
+      'by-revision': CompositionRevisionId
+    }
+  }
 }
 
 const databasePromises = new Map<string, Promise<IDBPDatabase<CreativeStudioDatabaseSchema>>>()
@@ -111,18 +121,25 @@ export function openCreativeStudioDatabase(
   if (existing) return existing
 
   const database = openDB<CreativeStudioDatabaseSchema>(databaseName, CREATIVE_STUDIO_DATABASE_VERSION, {
-    upgrade(db) {
-      db.createObjectStore('projects')
-      db.createObjectStore('briefs').createIndex('by-project', 'projectId')
-      db.createObjectStore('documents').createIndex('by-project', 'projectId')
-      db.createObjectStore('compositions').createIndex('by-project', 'projectId')
-      db.createObjectStore('composition-revisions').createIndex('by-composition', 'compositionId')
-      db.createObjectStore('assets')
-      db.createObjectStore('asset-bytes')
-      db.createObjectStore('references')
-      db.createObjectStore('directions').createIndex('by-project', 'projectId')
-      db.createObjectStore('brand-profiles')
-      db.createObjectStore('working-states').createIndex('by-project', 'projectId')
+    upgrade(db, oldVersion) {
+      if (oldVersion < 1) {
+        db.createObjectStore('projects')
+        db.createObjectStore('briefs').createIndex('by-project', 'projectId')
+        db.createObjectStore('documents').createIndex('by-project', 'projectId')
+        db.createObjectStore('compositions').createIndex('by-project', 'projectId')
+        db.createObjectStore('composition-revisions').createIndex('by-composition', 'compositionId')
+        db.createObjectStore('assets')
+        db.createObjectStore('asset-bytes')
+        db.createObjectStore('references')
+        db.createObjectStore('directions').createIndex('by-project', 'projectId')
+        db.createObjectStore('brand-profiles')
+        db.createObjectStore('working-states').createIndex('by-project', 'projectId')
+      }
+      if (oldVersion < 2) {
+        const locks = db.createObjectStore('locks')
+        locks.createIndex('by-composition', 'compositionId')
+        locks.createIndex('by-revision', 'revisionId')
+      }
     },
   })
 

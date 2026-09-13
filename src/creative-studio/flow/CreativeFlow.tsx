@@ -13,7 +13,7 @@ import type { CreativeDirection } from '../domain/creativeDirection'
 import type { CreativeDocument } from '../domain/creativeDocument'
 import type { CreativeEngineInput, CreativeEngineProvider } from '../domain/creativeEngine'
 import type { Composition, CompositionRevision } from '../domain/composition'
-import type { CreativeAssetId, VisualReferenceId } from '../domain/ids'
+import type { CreativeAssetId, ElementLockId, VisualReferenceId } from '../domain/ids'
 import type { ElementLock } from '../domain/locks'
 import type { CreativeProject } from '../domain/creativeProject'
 import type { TypographyDefinition } from '../domain/typography'
@@ -26,6 +26,7 @@ import {
   type RefinementIntent,
 } from '../engine'
 import { CreativeStudioRepository } from '../persistence/creativeStudioRepository'
+import { propagateLocksToRevision } from '../locks/lockEngine'
 import {
   attachAsset,
   attachReference,
@@ -69,7 +70,11 @@ export type CreativeFlowProps = {
   engineProvider?: CreativeEngineProvider
   idFactory?: CreativeFlowIdFactory
   onSelectedDirectionChange?: (direction?: CreativeDirection) => void
-  onCompositionReady?: (composition: Composition, revision: CompositionRevision) => void
+  onCompositionReady?: (
+    composition: Composition,
+    revision: CompositionRevision,
+    locks: ElementLock[],
+  ) => void
 }
 
 type CreativeEngineRuntime = CreativeEngineProvider & {
@@ -342,6 +347,7 @@ export function CreativeFlow({
     revision: CompositionRevision,
     direction: CreativeDirection,
     selectedDocument: CreativeDocument,
+    propagatedLocks: ElementLock[] = [],
   ) => {
     const generatedAssets = engine.drainGeneratedAssets?.() ?? []
     const nextReferences = consumeReferenceAnalyses()
@@ -368,6 +374,7 @@ export function CreativeFlow({
       document: nextDocument,
       generatedAssets,
       references: nextReferences,
+      locks: propagatedLocks,
     })
     setActiveComposition(nextComposition)
     setActiveRevision(revision)
@@ -376,7 +383,7 @@ export function CreativeFlow({
     if (generatedAssets.length) {
       setAssets((current) => [...current, ...generatedAssets.map(({ asset }) => asset)])
     }
-    onCompositionReady?.(nextComposition, revision)
+    onCompositionReady?.(nextComposition, revision, propagatedLocks)
   }
 
   const generateDirections = () => {
@@ -417,7 +424,18 @@ export function CreativeFlow({
     if (!selectedDirection) return
     void runAction(async () => {
       const result = await engine.refine(engineInput(draftBrief, selectedDirection, intent))
-      await persistEngineRevision(result.output, selectedDirection, activeDocument)
+      const propagatedLocks = propagateLocksToRevision(
+        activeRevision,
+        result.output,
+        locks,
+        () => generatedId('lock') as ElementLockId,
+      )
+      await persistEngineRevision(
+        result.output,
+        selectedDirection,
+        activeDocument,
+        propagatedLocks,
+      )
       setMessage(`${REFINEMENT_INTENT_LABELS[intent]} created revision ${result.output.revisionNumber}.`)
     })
   }

@@ -51,6 +51,7 @@ type Workspace = {
   brandProfile: BrandProfile
   assets: CreativeAsset[]
   directions: Awaited<ReturnType<CreativeStudioRepository['getDirections']>>
+  locks: ElementLock[]
 }
 
 type CapturedPage = {
@@ -160,6 +161,7 @@ function workspaceFromBundle(bundle: CreativeProjectBundle): Workspace {
     brandProfile: bundle.brandProfile,
     assets: bundle.assets ?? [],
     directions: bundle.directions ?? [],
+    locks: bundle.locks ?? [],
   }
 }
 
@@ -179,6 +181,7 @@ function workspaceFromRestore(
     brandProfile: restored.brandProfile,
     assets: restored.assets,
     directions,
+    locks: restored.locks,
   }
 }
 
@@ -252,6 +255,7 @@ export function CreativeStudioApp() {
       if (!active) return
       setWorkspace(loaded)
       setWorkingElements(loaded.revision.elements)
+      setLocks(loaded.locks)
       await hydrateAssets(loaded.revision.elements, loaded.assets)
       if (active) setStatus('Creative Studio ready. Changes are saved locally.')
     }).catch((error: unknown) => {
@@ -276,10 +280,11 @@ export function CreativeStudioApp() {
   const handleCompositionReady = useCallback(async (
     composition: Composition,
     revision: CompositionRevision,
+    nextLocks: ElementLock[],
   ) => {
     setWorkspace((current) => current ? { ...current, composition, revision } : current)
     setWorkingElements(revision.elements)
-    setLocks([])
+    setLocks(nextLocks)
     setPages((current) => [
       ...current.filter((page) => page.revision.id !== revision.id),
       { canvas: composition.canvas, revision },
@@ -287,6 +292,20 @@ export function CreativeStudioApp() {
     await hydrateAssets(revision.elements, workspace?.assets ?? [])
     setStatus(`Revision ${revision.revisionNumber} ready and saved.`)
   }, [hydrateAssets, workspace?.assets])
+
+  const handleLocksChange = useCallback((nextLocks: ElementLock[]) => {
+    if (!workspace) return
+    setLocks(nextLocks)
+    void repository.replaceLocksForRevision(
+      workspace.composition.id,
+      workspace.revision.id,
+      nextLocks.filter((lock) =>
+        lock.compositionId === workspace.composition.id && lock.revisionId === workspace.revision.id),
+    ).catch((error: unknown) => {
+      console.error(error)
+      setStatus(error instanceof Error ? error.message : 'Creative Studio locks failed to save.')
+    })
+  }, [repository, workspace])
 
   const handleWorkingElementsChange = useCallback((elements: CompositionElement[]) => {
     if (!workspace) return
@@ -389,7 +408,7 @@ export function CreativeStudioApp() {
             brandOverrides={workspace.document.brandOverrides}
             resolveAssetUrl={resolveAssetUrl}
             locks={locks}
-            onLocksChange={setLocks}
+            onLocksChange={handleLocksChange}
             onWorkingElementsChange={handleWorkingElementsChange}
             onInvariantViolation={() => setStatus('A locked property blocked that edit.')}
           />

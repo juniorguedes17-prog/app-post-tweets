@@ -171,6 +171,28 @@ export function getApplicableLocks(
   )
 }
 
+/**
+ * Carries the immutable snapshots that protected a base revision into its accepted successor.
+ * The source locks are retained for historical validation; callers persist these clones with
+ * fresh IDs so one lock record never belongs to two revisions.
+ */
+export function propagateLocksToRevision(
+  baseRevision: CompositionRevision,
+  nextRevision: CompositionRevision,
+  locks: ElementLock[],
+  createLockId: () => ElementLockId,
+): ElementLock[] {
+  if (baseRevision.compositionId !== nextRevision.compositionId) {
+    throw new Error('Locks can only be propagated within the same composition.')
+  }
+
+  return getApplicableLocks(baseRevision, locks).map((lock) => ({
+    ...lock,
+    id: createLockId(),
+    revisionId: nextRevision.id,
+  }))
+}
+
 export function getLockedScopes(
   baseRevision: CompositionRevision,
   locks: ElementLock[],

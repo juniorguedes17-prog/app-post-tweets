@@ -5,6 +5,7 @@ import type { CreativeDirection } from '../domain/creativeDirection'
 import type { CreativeDocument } from '../domain/creativeDocument'
 import type { Composition, CompositionRevision } from '../domain/composition'
 import type {
+  CompositionId,
   CompositionRevisionId,
   CreativeAssetId,
   CreativeDocumentId,
@@ -12,6 +13,7 @@ import type {
   VisualReferenceId,
 } from '../domain/ids'
 import type { VisualReference } from '../domain/visualReference'
+import type { ElementLock } from '../domain/locks'
 import {
   openCreativeStudioDatabase,
   type CreativeAssetBytesRecord,
@@ -31,6 +33,7 @@ export type SaveCreativeEngineRevisionInput = {
   document: CreativeDocument
   generatedAssets?: GeneratedAssetRecord[]
   references?: VisualReference[]
+  locks?: ElementLock[]
 }
 
 const documentStores = [
@@ -43,6 +46,7 @@ const documentStores = [
   'references',
   'directions',
   'brand-profiles',
+  'locks',
 ] as const
 
 export class CompositionRevisionConflictError extends Error {
@@ -142,6 +146,9 @@ export class CreativeStudioRepository {
     }
     for (const direction of bundle.directions ?? []) {
       await transaction.objectStore('directions').put(direction, direction.id)
+    }
+    for (const lock of bundle.locks ?? []) {
+      await transaction.objectStore('locks').put(lock, lock.id)
     }
 
     await transaction.done
@@ -315,6 +322,7 @@ export class CreativeStudioRepository {
     document,
     generatedAssets = [],
     references = [],
+    locks = [],
   }: SaveCreativeEngineRevisionInput): Promise<void> {
     if (
       revision.compositionId !== composition.id ||
@@ -327,7 +335,7 @@ export class CreativeStudioRepository {
     }
     const db = await this.database
     const transaction = db.transaction(
-      ['composition-revisions', 'compositions', 'documents', 'assets', 'asset-bytes', 'references'],
+      ['composition-revisions', 'compositions', 'documents', 'assets', 'asset-bytes', 'references', 'locks'],
       'readwrite',
     )
     await addImmutableRevision(transaction.objectStore('composition-revisions'), revision)
@@ -344,7 +352,35 @@ export class CreativeStudioRepository {
     for (const reference of references) {
       await transaction.objectStore('references').put(reference, reference.id)
     }
+    for (const lock of locks) {
+      if (lock.compositionId !== composition.id || lock.revisionId !== revision.id) {
+        throw new Error('Persisted locks must belong to the accepted revision.')
+      }
+      await transaction.objectStore('locks').put(lock, lock.id)
+    }
     await transaction.done
+  }
+
+  async replaceLocksForRevision(
+    compositionId: CompositionId,
+    revisionId: CompositionRevisionId,
+    locks: ElementLock[],
+  ): Promise<void> {
+    if (locks.some((lock) => lock.compositionId !== compositionId || lock.revisionId !== revisionId)) {
+      throw new Error('Locks must belong to the revision they replace.')
+    }
+    const db = await this.database
+    const transaction = db.transaction('locks', 'readwrite')
+    const store = transaction.store
+    const existing = await store.index('by-revision').getAll(revisionId)
+    for (const lock of existing) await store.delete(lock.id)
+    for (const lock of locks) await store.put(lock, lock.id)
+    await transaction.done
+  }
+
+  async getLocksForRevision(revisionId: CompositionRevisionId): Promise<ElementLock[]> {
+    const db = await this.database
+    return db.getAllFromIndex('locks', 'by-revision', revisionId)
   }
 
   async saveAssetBytes(record: CreativeAssetBytesRecord): Promise<void> {
@@ -374,7 +410,7 @@ export class CreativeStudioRepository {
     const document = await db.get('documents', documentId)
     if (!document) return undefined
 
-    const [project, brief, composition, currentRevision, workingState, brandProfile, references] =
+    const [project, brief, composition, currentRevision, workingState, brandProfile, references, locks] =
       await Promise.all([
         db.get('projects', document.projectId),
         db.get('briefs', document.briefId),
@@ -385,6 +421,7 @@ export class CreativeStudioRepository {
           ? db.get('brand-profiles', document.brandProfileId)
           : Promise.resolve(undefined),
         Promise.all(document.referenceIds.map((referenceId) => db.get('references', referenceId))),
+        db.getAllFromIndex('locks', 'by-revision', document.currentRevisionId),
       ])
 
     if (
@@ -420,6 +457,7 @@ export class CreativeStudioRepository {
         Boolean(reference),
       ),
       ...(selectedDirection ? { selectedDirection } : {}),
+      locks,
     }
   }
 }

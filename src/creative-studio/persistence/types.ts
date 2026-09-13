@@ -6,6 +6,7 @@ import type { CreativeDocument } from '../domain/creativeDocument'
 import type { CreativeProject } from '../domain/creativeProject'
 import type { Composition, CompositionRevision } from '../domain/composition'
 import type { CreativeAssetId } from '../domain/ids'
+import type { ElementLock } from '../domain/locks'
 import type { VisualReference } from '../domain/visualReference'
 import type { CreativeWorkingState } from './schema'
 
@@ -20,6 +21,7 @@ export type CreativeProjectBundle = {
   assets?: CreativeAsset[]
   references?: VisualReference[]
   directions?: CreativeDirection[]
+  locks?: ElementLock[]
 }
 
 /** Read model required to rehydrate a CreativeDocument without loading image bytes eagerly. */
@@ -35,4 +37,5 @@ export type RestoredCreativeDocument = {
   missingAssetIds: CreativeAssetId[]
   references: VisualReference[]
   selectedDirection?: CreativeDirection
+  locks: ElementLock[]
 }
