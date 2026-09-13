@@ -21,20 +21,6 @@ export type CreativeExportOptions = {
   pixelRatio?: number
 }
 
-type SavePicker = {
-  createWritable: () => Promise<{
-    write: (data: Blob) => Promise<void>
-    close: () => Promise<void>
-  }>
-}
-
-type SavePickerWindow = Window & {
-  showSaveFilePicker?: (options: {
-    suggestedName: string
-    types: { description: string; accept: Record<string, string[]> }[]
-  }) => Promise<SavePicker>
-}
-
 const nextPaint = () =>
   new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
 
@@ -200,30 +186,9 @@ function download(blob: Blob, fileName: string) {
 export async function saveCreativeExport(
   blob: Blob,
   fileName: string,
-  mimeType: 'image/png' | 'application/zip',
+  _mimeType: 'image/png' | 'application/zip',
 ) {
-  const picker = (window as SavePickerWindow).showSaveFilePicker
-  if (!picker) {
-    download(blob, fileName)
-    return
-  }
-
-  try {
-    const handle = await picker({
-      suggestedName: fileName,
-      types: [
-        {
-          description: mimeType === 'image/png' ? 'PNG image' : 'ZIP archive',
-          accept: { [mimeType]: [mimeType === 'image/png' ? '.png' : '.zip'] },
-        },
-      ],
-    })
-    const writable = await handle.createWritable()
-    await writable.write(blob)
-    await writable.close()
-  } catch (error) {
-    if ((error as DOMException).name !== 'AbortError') throw error
-  }
+  download(blob, fileName)
 }
 
 export async function exportAndSaveCreativeRevision(
