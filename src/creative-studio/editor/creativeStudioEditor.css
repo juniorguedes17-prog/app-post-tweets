@@ -1,0 +1,354 @@
+.creative-studio-editor {
+  --creative-studio-panel: #11141c;
+  --creative-studio-panel-soft: #191e29;
+  --creative-studio-border: #2b3242;
+  --creative-studio-text: #f5f7fa;
+  --creative-studio-muted: #98a2b3;
+  --creative-studio-accent: #5f7cff;
+  --creative-studio-danger: #ff6b7a;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 640px;
+  overflow: hidden;
+  border: 1px solid var(--creative-studio-border);
+  border-radius: 18px;
+  background: #0b0e14;
+  color: var(--creative-studio-text);
+  font-family: Inter, system-ui, sans-serif;
+}
+
+.creative-studio-editor *,
+.creative-studio-editor *::before,
+.creative-studio-editor *::after {
+  box-sizing: border-box;
+}
+
+.creative-studio-editor__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 68px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--creative-studio-border);
+  background: var(--creative-studio-panel);
+}
+
+.creative-studio-editor__revision {
+  display: grid;
+  gap: 2px;
+}
+
+.creative-studio-editor__revision span {
+  color: var(--creative-studio-muted);
+  font-size: 12px;
+}
+
+.creative-studio-editor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.creative-studio-editor__actions button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--creative-studio-border);
+  border-radius: 9px;
+  background: var(--creative-studio-panel-soft);
+  color: var(--creative-studio-text);
+  cursor: pointer;
+}
+
+.creative-studio-editor__actions button:hover:not(:disabled) {
+  border-color: var(--creative-studio-accent);
+}
+
+.creative-studio-editor__actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.creative-studio-editor__workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  min-height: 570px;
+}
+
+.creative-studio-editor__stage {
+  min-width: 0;
+  overflow: auto;
+  padding: 28px;
+  background:
+    linear-gradient(45deg, #141925 25%, transparent 25%),
+    linear-gradient(-45deg, #141925 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #141925 75%),
+    linear-gradient(-45deg, transparent 75%, #141925 75%),
+    #0e121a;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  background-size: 16px 16px;
+}
+
+.creative-studio-canvas-viewport {
+  position: relative;
+  width: 100%;
+  overflow: visible;
+}
+
+.creative-studio-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  transform-origin: top left;
+  box-shadow: 0 20px 60px rgb(0 0 0 / 35%);
+  touch-action: none;
+  user-select: none;
+}
+
+.creative-studio-scene-element {
+  position: absolute;
+  outline: none;
+  transform-origin: center;
+  cursor: move;
+  touch-action: none;
+}
+
+.creative-studio-scene-element--selected {
+  outline: calc(2px * var(--creative-studio-inverse-scale)) solid var(--creative-studio-accent);
+  outline-offset: calc(2px * var(--creative-studio-inverse-scale));
+}
+
+.creative-studio-scene-element__resize-handle {
+  position: absolute;
+  right: calc(-7px * var(--creative-studio-inverse-scale));
+  bottom: calc(-7px * var(--creative-studio-inverse-scale));
+  width: calc(14px * var(--creative-studio-inverse-scale));
+  height: calc(14px * var(--creative-studio-inverse-scale));
+  padding: 0;
+  border: calc(2px * var(--creative-studio-inverse-scale)) solid #ffffff;
+  border-radius: 50%;
+  background: var(--creative-studio-accent);
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.creative-studio-scene-element__text,
+.creative-studio-scene-element__asset-clip,
+.creative-studio-scene-element__asset-clip img,
+.creative-studio-scene-element__shape,
+.creative-studio-scene-element__annotation,
+.creative-studio-scene-element__group {
+  width: 100%;
+  height: 100%;
+}
+
+.creative-studio-scene-element__text {
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.creative-studio-scene-element__asset-clip {
+  overflow: hidden;
+}
+
+.creative-studio-scene-element__asset-clip img {
+  display: block;
+  transform-origin: center;
+  pointer-events: none;
+}
+
+.creative-studio-scene-element__asset-placeholder {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-content: center;
+  gap: 8px;
+  padding: 12px;
+  border: 2px dashed #a9b4c7;
+  background: #e8ecf3;
+  color: #344054;
+  text-align: center;
+}
+
+.creative-studio-scene-element__asset-placeholder small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.creative-studio-scene-element__annotation {
+  display: grid;
+  place-items: center;
+  font-family: "Segoe Print", cursive;
+  font-size: 0.68em;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.creative-studio-scene-element__annotation--arrow,
+.creative-studio-scene-element__annotation--scribble {
+  font-size: 0.9em;
+}
+
+.creative-studio-scene-element__annotation--circle {
+  border-style: solid;
+  border-radius: 50%;
+}
+
+.creative-studio-scene-element__annotation--highlight {
+  border-style: solid;
+  background: currentColor;
+  opacity: 0.28;
+}
+
+.creative-studio-scene-element__annotation--underline {
+  border-style: none none solid;
+}
+
+.creative-studio-scene-element__group {
+  border: 1px dashed transparent;
+}
+
+.creative-studio-scene-element--selected .creative-studio-scene-element__group {
+  border-color: var(--creative-studio-accent);
+}
+
+.creative-studio-inspector {
+  min-width: 0;
+  overflow: auto;
+  padding: 18px;
+  border-left: 1px solid var(--creative-studio-border);
+  background: var(--creative-studio-panel);
+}
+
+.creative-studio-inspector h2,
+.creative-studio-inspector h3,
+.creative-studio-inspector p {
+  margin: 0;
+}
+
+.creative-studio-inspector h2 {
+  font-size: 17px;
+}
+
+.creative-studio-inspector h3 {
+  margin-bottom: 12px;
+  color: var(--creative-studio-muted);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.creative-studio-inspector__heading {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 16px;
+}
+
+.creative-studio-inspector__heading span {
+  color: var(--creative-studio-accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.creative-studio-inspector__heading code {
+  overflow: hidden;
+  color: var(--creative-studio-muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+}
+
+.creative-studio-inspector__section {
+  display: grid;
+  gap: 12px;
+  padding: 18px 0;
+  border-top: 1px solid var(--creative-studio-border);
+}
+
+.creative-studio-inspector__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.creative-studio-inspector__field {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.creative-studio-inspector__field > span {
+  color: var(--creative-studio-muted);
+  font-size: 11px;
+}
+
+.creative-studio-inspector__field input,
+.creative-studio-inspector__field select,
+.creative-studio-inspector__field textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid var(--creative-studio-border);
+  border-radius: 8px;
+  outline: none;
+  background: #0d1119;
+  color: var(--creative-studio-text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.creative-studio-inspector__field input:focus,
+.creative-studio-inspector__field select:focus,
+.creative-studio-inspector__field textarea:focus {
+  border-color: var(--creative-studio-accent);
+}
+
+.creative-studio-inspector__color-inputs {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.creative-studio-inspector__color-inputs input[type="color"] {
+  height: 36px;
+  padding: 3px;
+}
+
+.creative-studio-inspector__swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.creative-studio-inspector__swatches button {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 35%);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.creative-studio-inspector__empty,
+.creative-studio-inspector__note {
+  color: var(--creative-studio-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+  .creative-studio-editor__workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .creative-studio-inspector {
+    max-height: 420px;
+    border-top: 1px solid var(--creative-studio-border);
+    border-left: 0;
+  }
+}
