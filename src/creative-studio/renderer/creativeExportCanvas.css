@@ -1,0 +1,94 @@
+.creative-studio-export-canvas,
+.creative-studio-export-canvas *,
+.creative-studio-export-canvas *::before,
+.creative-studio-export-canvas *::after {
+  box-sizing: border-box;
+}
+
+.creative-studio-export-canvas {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.creative-studio-export-element {
+  position: absolute;
+  transform-origin: center;
+}
+
+.creative-studio-export-canvas .creative-studio-scene-element__text,
+.creative-studio-export-canvas .creative-studio-scene-element__asset-clip,
+.creative-studio-export-canvas .creative-studio-scene-element__asset-clip img,
+.creative-studio-export-canvas .creative-studio-scene-element__shape,
+.creative-studio-export-canvas .creative-studio-scene-element__annotation,
+.creative-studio-export-canvas .creative-studio-scene-element__group {
+  width: 100%;
+  height: 100%;
+}
+
+.creative-studio-export-canvas .creative-studio-scene-element__text {
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.creative-studio-export-canvas .creative-studio-scene-element__asset-clip {
+  overflow: hidden;
+}
+
+.creative-studio-export-canvas .creative-studio-scene-element__asset-clip img {
+  display: block;
+  transform-origin: center;
+}
+
+.creative-studio-export-canvas .creative-studio-scene-element__asset-placeholder {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-content: center;
+  gap: 8px;
+  padding: 12px;
+  border: 2px dashed #a9b4c7;
+  background: #e8ecf3;
+  color: #344054;
+  text-align: center;
+}
+
+.creative-studio-export-canvas .creative-studio-scene-element__asset-placeholder small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.creative-studio-export-canvas .creative-studio-scene-element__annotation {
+  display: grid;
+  place-items: center;
+  font-family: "Segoe Print", cursive;
+  font-size: 0.68em;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.creative-studio-export-canvas .creative-studio-scene-element__annotation--arrow,
+.creative-studio-export-canvas .creative-studio-scene-element__annotation--scribble {
+  font-size: 0.9em;
+}
+
+.creative-studio-export-canvas .creative-studio-scene-element__annotation--circle {
+  border-style: solid;
+  border-radius: 50%;
+}
+
+.creative-studio-export-canvas .creative-studio-scene-element__annotation--highlight {
+  border-style: solid;
+  background: currentColor;
+  opacity: 0.28;
+}
+
+.creative-studio-export-canvas .creative-studio-scene-element__annotation--underline {
+  border-style: none none solid;
+}
+
+.creative-studio-export-canvas .creative-studio-scene-element__group {
+  border: 0;
+}
