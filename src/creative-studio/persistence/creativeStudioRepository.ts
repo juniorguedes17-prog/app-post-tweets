@@ -442,6 +442,15 @@ export class CreativeStudioRepository {
     const selectedDirection = document.selectedDirectionId
       ? await db.get('directions', document.selectedDirectionId)
       : undefined
+    const pageRevisionRecords = await Promise.all(
+      (document.pages ?? []).map((page) => db.get('composition-revisions', page.revisionId)),
+    )
+    const pages = (document.pages ?? []).flatMap((page, index) => {
+      const revision = pageRevisionRecords[index]
+      return revision && revision.compositionId === page.compositionId
+        ? [{ canvas: page.canvas, revision }]
+        : []
+    })
 
     return {
       project,
@@ -449,6 +458,7 @@ export class CreativeStudioRepository {
       document,
       composition,
       currentRevision,
+      pages,
       ...(workingState ? { workingState } : {}),
       ...(brandProfile ? { brandProfile } : {}),
       assets,

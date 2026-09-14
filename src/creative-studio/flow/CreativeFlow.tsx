@@ -74,6 +74,7 @@ export type CreativeFlowProps = {
     composition: Composition,
     revision: CompositionRevision,
     locks: ElementLock[],
+    document: CreativeDocument,
   ) => void
 }
 
@@ -361,6 +362,14 @@ export function CreativeFlow({
     const nextDocument: CreativeDocument = {
       ...selectedDocument,
       currentRevisionId: revision.id,
+      pages: [
+        ...(selectedDocument.pages ?? []).filter((page) => page.revisionId !== revision.id),
+        {
+          compositionId: nextComposition.id,
+          revisionId: revision.id,
+          canvas: nextComposition.canvas,
+        },
+      ],
       brandOverrides,
       assetIds: Array.from(new Set([
         ...selectedDocument.assetIds,
@@ -383,7 +392,7 @@ export function CreativeFlow({
     if (generatedAssets.length) {
       setAssets((current) => [...current, ...generatedAssets.map(({ asset }) => asset)])
     }
-    onCompositionReady?.(nextComposition, revision, propagatedLocks)
+    onCompositionReady?.(nextComposition, revision, propagatedLocks, nextDocument)
   }
 
   const generateDirections = () => {

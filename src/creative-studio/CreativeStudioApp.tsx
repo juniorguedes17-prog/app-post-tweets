@@ -42,6 +42,11 @@ const INITIAL_REVISION_ID = 'creative-revision-p13-initial' as CompositionRevisi
 const BRAND_PROFILE_ID = 'creative-brand-inest' as BrandProfileId
 const BRAND_LOGO_ASSET_ID = 'creative-asset-inest-logo' as CreativeAssetId
 
+type CapturedPage = {
+  canvas: Composition['canvas']
+  revision: CompositionRevision
+}
+
 type Workspace = {
   project: CreativeProject
   brief: CreativeBrief
@@ -52,11 +57,7 @@ type Workspace = {
   assets: CreativeAsset[]
   directions: Awaited<ReturnType<CreativeStudioRepository['getDirections']>>
   locks: ElementLock[]
-}
-
-type CapturedPage = {
-  canvas: Composition['canvas']
-  revision: CompositionRevision
+  pages: CapturedPage[]
 }
 
 function createInitialBundle(): CreativeProjectBundle {
@@ -133,6 +134,7 @@ function createInitialBundle(): CreativeProjectBundle {
     briefId: BRIEF_ID,
     compositionId: COMPOSITION_ID,
     currentRevisionId: revision.id,
+    pages: [],
     brandProfileId: BRAND_PROFILE_ID,
     assetIds: [BRAND_LOGO_ASSET_ID],
     referenceIds: [],
@@ -162,6 +164,9 @@ function workspaceFromBundle(bundle: CreativeProjectBundle): Workspace {
     assets: bundle.assets ?? [],
     directions: bundle.directions ?? [],
     locks: bundle.locks ?? [],
+    pages: bundle.document.pages?.flatMap((page) => page.revisionId === bundle.currentRevision.id
+      ? [{ canvas: page.canvas, revision: bundle.currentRevision }]
+      : []) ?? [],
   }
 }
 
@@ -170,18 +175,22 @@ function workspaceFromRestore(
   directions: Workspace['directions'],
 ): Workspace {
   if (!restored.brandProfile) throw new Error('Restored Creative Studio document has no BrandProfile.')
+  const currentRevision = restored.workingState
+    ? { ...restored.currentRevision, elements: restored.workingState.elements }
+    : restored.currentRevision
   return {
     project: restored.project,
     brief: restored.brief,
     document: restored.document,
     composition: restored.composition,
-    revision: restored.workingState
-      ? { ...restored.currentRevision, elements: restored.workingState.elements }
-      : restored.currentRevision,
+    revision: currentRevision,
     brandProfile: restored.brandProfile,
     assets: restored.assets,
     directions,
     locks: restored.locks,
+    pages: restored.pages.map((page) => page.revision.id === currentRevision.id
+      ? { ...page, revision: currentRevision }
+      : page),
   }
 }
 
@@ -256,7 +265,11 @@ export function CreativeStudioApp() {
       setWorkspace(loaded)
       setWorkingElements(loaded.revision.elements)
       setLocks(loaded.locks)
-      await hydrateAssets(loaded.revision.elements, loaded.assets)
+      setPages(loaded.pages)
+      await hydrateAssets([
+        ...loaded.revision.elements,
+        ...loaded.pages.flatMap((page) => page.revision.elements),
+      ], loaded.assets)
       if (active) setStatus('Creative Studio ready. Changes are saved locally.')
     }).catch((error: unknown) => {
       if (active) setStatus(error instanceof Error ? error.message : 'Creative Studio failed to load.')
@@ -281,8 +294,9 @@ export function CreativeStudioApp() {
     composition: Composition,
     revision: CompositionRevision,
     nextLocks: ElementLock[],
+    document: CreativeDocument,
   ) => {
-    setWorkspace((current) => current ? { ...current, composition, revision } : current)
+    setWorkspace((current) => current ? { ...current, composition, revision, document } : current)
     setWorkingElements(revision.elements)
     setLocks(nextLocks)
     setPages((current) => [

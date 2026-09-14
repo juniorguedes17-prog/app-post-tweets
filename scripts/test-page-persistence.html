@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Creative Studio page persistence harness</title>
+  </head>
+  <body>
+    <pre id="result">running</pre>
+    <script type="module">
+      import { CreativeStudioRepository } from '/src/creative-studio/persistence/creativeStudioRepository.ts'
+      import { openCreativeStudioDatabase } from '/src/creative-studio/persistence/schema.ts'
+      import { exportCreativePagesZip } from '/src/creative-studio/export/creativeExport.tsx'
+
+      const result = document.querySelector('#result')
+      const runId = new URLSearchParams(location.search).get('run') ?? 'default'
+      const databaseName = `inest-creative-studio-page-harness-${runId}`
+      const phaseKey = `${databaseName}:phase`
+      const repository = new CreativeStudioRepository(openCreativeStudioDatabase(databaseName))
+
+      const feedCanvas = {
+        format: 'feed-4-5', width: 1080, height: 1350, background: '#F5F7FA',
+      }
+      const storyCanvas = {
+        format: 'story-9-16', width: 1080, height: 1920, background: '#F5F7FA',
+      }
+      const feedRevision = {
+        id: 'harness-revision-feed', compositionId: 'harness-composition', revisionNumber: 1,
+        elements: [], createdAt: 1, origin: 'generation',
+      }
+      const storyRevision = {
+        id: 'harness-revision-story', compositionId: 'harness-composition', revisionNumber: 2,
+        elements: [], createdAt: 2, origin: 'generation', parentRevisionId: feedRevision.id,
+      }
+      const project = {
+        id: 'harness-project', name: 'Page persistence harness', status: 'active',
+        currentDocumentId: 'harness-document', canvas: feedCanvas, createdAt: 1, updatedAt: 1,
+      }
+      const brief = {
+        id: 'harness-brief', projectId: project.id, content: 'Harness', objective: 'stop-scroll',
+        style: 'native-ugc', ugcIntensity: { value: 0.65 }, composition: 'photo-dominant',
+        brandPresence: 'minimal', imagePolicy: {
+          originalRequired: false, allowCrop: true, allowBackgroundRemoval: false,
+          allowAiGeneration: false,
+        },
+        canvas: feedCanvas, createdAt: 1, updatedAt: 1,
+      }
+      const feedComposition = {
+        id: 'harness-composition', projectId: project.id, canvas: feedCanvas,
+        currentRevisionId: feedRevision.id, createdAt: 1, updatedAt: 1,
+      }
+      const feedDocument = {
+        id: 'harness-document', projectId: project.id, briefId: brief.id,
+        compositionId: feedComposition.id, currentRevisionId: feedRevision.id,
+        pages: [{
+          compositionId: feedComposition.id, revisionId: feedRevision.id, canvas: feedCanvas,
+        }],
+        assetIds: [], referenceIds: [], createdAt: 1, updatedAt: 1,
+      }
+      const storyComposition = {
+        ...feedComposition, canvas: storyCanvas, currentRevisionId: storyRevision.id, updatedAt: 2,
+      }
+      const storyDocument = {
+        ...feedDocument,
+        currentRevisionId: storyRevision.id,
+        pages: [
+          ...feedDocument.pages,
+          {
+            compositionId: storyComposition.id,
+            revisionId: storyRevision.id,
+            canvas: storyCanvas,
+          },
+        ],
+        updatedAt: 2,
+      }
+
+      function assert(condition, message) {
+        if (!condition) throw new Error(message)
+      }
+
+      async function prepare() {
+        await repository.saveProjectBundle({
+          project, brief, document: feedDocument, composition: feedComposition,
+          currentRevision: feedRevision,
+        })
+        await repository.saveCreativeEngineRevision({
+          composition: storyComposition, revision: storyRevision, document: storyDocument,
+        })
+
+        const legacyRevision = {
+          id: 'legacy-revision', compositionId: 'legacy-composition', revisionNumber: 0,
+          elements: [], createdAt: 1, origin: 'initial',
+        }
+        await repository.saveProjectBundle({
+          project: { ...project, id: 'legacy-project', currentDocumentId: 'legacy-document' },
+          brief: { ...brief, id: 'legacy-brief', projectId: 'legacy-project' },
+          document: {
+            id: 'legacy-document', projectId: 'legacy-project', briefId: 'legacy-brief',
+            compositionId: 'legacy-composition', currentRevisionId: legacyRevision.id,
+            assetIds: [], referenceIds: [], createdAt: 1, updatedAt: 1,
+          },
+          composition: {
+            ...feedComposition, id: 'legacy-composition', projectId: 'legacy-project',
+            currentRevisionId: legacyRevision.id,
+          },
+          currentRevision: legacyRevision,
+        })
+        sessionStorage.setItem(phaseKey, 'restore')
+        location.reload()
+      }
+
+      async function verify() {
+        const restored = await repository.restoreDocument(feedDocument.id)
+        assert(restored, 'multipage document did not restore')
+        assert(restored.pages.length === 2, 'expected two restored pages')
+        assert(restored.pages[0].revision.id === feedRevision.id, 'Feed order/ID changed')
+        assert(restored.pages[1].revision.id === storyRevision.id, 'Story order/ID changed')
+        assert(restored.pages[0].canvas.width === 1080 && restored.pages[0].canvas.height === 1350,
+          'Feed canvas changed')
+        assert(restored.pages[1].canvas.width === 1080 && restored.pages[1].canvas.height === 1920,
+          'Story canvas changed')
+        assert(restored.document.currentRevisionId === storyRevision.id,
+          'active page revision was not preserved')
+
+        const legacy = await repository.restoreDocument('legacy-document')
+        assert(legacy, 'document without pages did not restore')
+        assert(legacy.pages.length === 0, 'legacy document should restore with an empty page list')
+
+        const exportPages = restored.pages.map((page, index) => ({
+          canvas: page.canvas,
+          revision: page.revision,
+          resolveAssetUrl: () => undefined,
+          fileName: `page-${index + 1}.png`,
+        }))
+        const zip = await exportCreativePagesZip(exportPages)
+        assert(zip.type === 'application/zip', 'P11 did not produce a ZIP Blob')
+        assert(zip.size > 0, 'P11 produced an empty ZIP Blob')
+
+        sessionStorage.removeItem(phaseKey)
+        result.textContent = JSON.stringify({
+          status: 'PASS', reload: true, pageCount: restored.pages.length,
+          pageOrder: restored.pages.map((page) => page.revision.id),
+          dimensions: restored.pages.map((page) => [page.canvas.width, page.canvas.height]),
+          activeRevisionId: restored.document.currentRevisionId,
+          legacyPageCount: legacy.pages.length,
+          zipBytes: zip.size,
+        }, null, 2)
+      }
+
+      try {
+        if (sessionStorage.getItem(phaseKey) === 'restore') await verify()
+        else await prepare()
+      } catch (error) {
+        result.textContent = JSON.stringify({
+          status: 'FAIL', message: error instanceof Error ? error.message : String(error),
+        }, null, 2)
+      }
+    </script>
+  </body>
+</html>

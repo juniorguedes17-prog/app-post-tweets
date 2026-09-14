@@ -5,6 +5,7 @@ import type { CreativeDirection } from '../domain/creativeDirection'
 import type { CreativeDocument } from '../domain/creativeDocument'
 import type { CreativeProject } from '../domain/creativeProject'
 import type { Composition, CompositionRevision } from '../domain/composition'
+import type { CanvasSpec } from '../domain/canvas'
 import type { CreativeAssetId } from '../domain/ids'
 import type { ElementLock } from '../domain/locks'
 import type { VisualReference } from '../domain/visualReference'
@@ -31,6 +32,10 @@ export type RestoredCreativeDocument = {
   document: CreativeDocument
   composition: Composition
   currentRevision: CompositionRevision
+  pages: Array<{
+    canvas: CanvasSpec
+    revision: CompositionRevision
+  }>
   workingState?: CreativeWorkingState
   brandProfile?: BrandProfile
   assets: CreativeAsset[]
