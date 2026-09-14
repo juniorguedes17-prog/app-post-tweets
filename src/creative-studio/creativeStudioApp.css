@@ -224,6 +224,12 @@
   .creative-studio-app__export-actions button { min-height: 46px; }
 }
 
+@media (max-width: 1100px) {
+  .creative-studio-app__export-actions button {
+    min-height: 44px;
+  }
+}
+
 @media (pointer: coarse) {
   .inest-workspace-switcher button { min-height: 44px; }
 }

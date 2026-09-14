@@ -411,6 +411,10 @@
   .creative-studio-editor__stage {
     padding: 20px;
   }
+
+  .creative-studio-editor__actions button {
+    min-height: 44px;
+  }
 }
 
 @media (pointer: coarse) {
