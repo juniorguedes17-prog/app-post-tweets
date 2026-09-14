@@ -183,7 +183,7 @@ export function propagateLocksToRevision(
   createLockId: () => ElementLockId,
 ): ElementLock[] {
   if (baseRevision.compositionId !== nextRevision.compositionId) {
-    throw new Error('Locks can only be propagated within the same composition.')
+    throw new Error('Os bloqueios só podem ser propagados dentro da mesma composição.')
   }
 
   return getApplicableLocks(baseRevision, locks).map((lock) => ({

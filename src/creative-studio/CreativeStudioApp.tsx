@@ -25,6 +25,7 @@ import {
   type CreativeExportPage,
 } from './export'
 import { CreativeFlow } from './flow'
+import { canvasFormatLabel } from './presentationLabels'
 import {
   CreativeStudioAutosave,
   CreativeStudioRepository,
@@ -153,7 +154,7 @@ function createInitialBundle(): CreativeProjectBundle {
 }
 
 function workspaceFromBundle(bundle: CreativeProjectBundle): Workspace {
-  if (!bundle.brandProfile) throw new Error('Creative Studio requires the iNest BrandProfile.')
+  if (!bundle.brandProfile) throw new Error('O Creative Studio requer o BrandProfile da iNest.')
   return {
     project: bundle.project,
     brief: bundle.brief,
@@ -174,7 +175,7 @@ function workspaceFromRestore(
   restored: RestoredCreativeDocument,
   directions: Workspace['directions'],
 ): Workspace {
-  if (!restored.brandProfile) throw new Error('Restored Creative Studio document has no BrandProfile.')
+  if (!restored.brandProfile) throw new Error('O documento restaurado do Creative Studio não possui BrandProfile.')
   const withWorkingState = (revision: CompositionRevision) =>
     restored.workingState?.baseRevisionId === revision.id
       ? { ...revision, elements: restored.workingState.elements }
@@ -244,7 +245,7 @@ export function CreativeStudioApp() {
   const [pages, setPages] = useState<CapturedPage[]>([])
   const [selectedPageIds, setSelectedPageIds] = useState<CompositionRevisionId[]>([])
   const [navigatingPage, setNavigatingPage] = useState(false)
-  const [status, setStatus] = useState('Loading Creative Studio…')
+  const [status, setStatus] = useState('Carregando o Creative Studio…')
   const [exporting, setExporting] = useState(false)
 
   const hydrateAssets = useCallback(async (elements: CompositionElement[], knownAssets: CreativeAsset[]) => {
@@ -279,9 +280,9 @@ export function CreativeStudioApp() {
         ...loaded.revision.elements,
         ...loaded.pages.flatMap((page) => page.revision.elements),
       ], loaded.assets)
-      if (active) setStatus('Creative Studio ready. Changes are saved locally.')
+      if (active) setStatus('Creative Studio pronto. As alterações são salvas neste dispositivo.')
     }).catch((error: unknown) => {
-      if (active) setStatus(error instanceof Error ? error.message : 'Creative Studio failed to load.')
+      if (active) setStatus(error instanceof Error ? error.message : 'Não foi possível carregar o Creative Studio.')
     })
     return () => { active = false }
   }, [hydrateAssets, repository])
@@ -316,7 +317,7 @@ export function CreativeStudioApp() {
       ? current
       : [...current, revision.id])
     await hydrateAssets(revision.elements, workspace?.assets ?? [])
-    setStatus(`Revision ${revision.revisionNumber} ready and saved.`)
+    setStatus(`Revisão ${revision.revisionNumber} pronta e salva.`)
   }, [hydrateAssets, workspace?.assets])
 
   const handleLocksChange = useCallback((nextLocks: ElementLock[]) => {
@@ -329,7 +330,7 @@ export function CreativeStudioApp() {
         lock.compositionId === workspace.composition.id && lock.revisionId === workspace.revision.id),
     ).catch((error: unknown) => {
       console.error(error)
-      setStatus(error instanceof Error ? error.message : 'Creative Studio locks failed to save.')
+      setStatus(error instanceof Error ? error.message : 'Não foi possível salvar os bloqueios do Creative Studio.')
     })
   }, [repository, workspace])
 
@@ -378,9 +379,9 @@ export function CreativeStudioApp() {
       setWorkingElements(page.revision.elements)
       setLocks(nextLocks)
       await hydrateAssets(page.revision.elements, workspace.assets)
-      setStatus(`${page.canvas.format} page selected.`)
+      setStatus(`Página ${canvasFormatLabel(page.canvas.format)} selecionada.`)
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Creative Studio page navigation failed.')
+      setStatus(error instanceof Error ? error.message : 'Não foi possível navegar entre as páginas do Creative Studio.')
     } finally {
       setNavigatingPage(false)
     }
@@ -398,9 +399,9 @@ export function CreativeStudioApp() {
     try {
       await autosave.flush()
       await action()
-      setStatus('Export completed.')
+      setStatus('Exportação concluída.')
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Creative Studio export failed.')
+      setStatus(error instanceof Error ? error.message : 'Não foi possível exportar o Creative Studio.')
     } finally {
       setExporting(false)
     }
@@ -439,10 +440,10 @@ export function CreativeStudioApp() {
       />
 
       {pages.length > 0 ? (
-        <nav className="creative-studio-app__pages" aria-label="Creative Studio pages">
+        <nav className="creative-studio-app__pages" aria-label="Páginas do Creative Studio">
           <div className="creative-studio-app__pages-heading">
-            <strong>Pages</strong>
-            <span>{selectedPageIds.length} selected for ZIP</span>
+            <strong>Páginas</strong>
+            <span>{selectedPageIds.length} selecionada(s) para ZIP</span>
           </div>
           <ol className="creative-studio-app__page-list">
             {pages.map((page, index) => {
@@ -458,8 +459,8 @@ export function CreativeStudioApp() {
                     disabled={navigatingPage}
                     onClick={() => void handlePageNavigation(page)}
                   >
-                    <strong>Page {index + 1}</strong>
-                    <span>{page.canvas.format} · {page.canvas.width}×{page.canvas.height}</span>
+                    <strong>Página {index + 1}</strong>
+                    <span>{canvasFormatLabel(page.canvas.format)} · {page.canvas.width}×{page.canvas.height}</span>
                   </button>
                   <label>
                     <input
@@ -467,7 +468,7 @@ export function CreativeStudioApp() {
                       checked={selected}
                       onChange={() => handlePageSelectionChange(page.revision.id)}
                     />
-                    <span>Include in ZIP</span>
+                    <span>Incluir no ZIP</span>
                   </label>
                 </li>
               )
@@ -477,11 +478,11 @@ export function CreativeStudioApp() {
       ) : null}
 
       {workspace.revision.elements.length > 0 ? (
-        <section className="creative-studio-app__result" aria-label="Creative Studio result">
+        <section className="creative-studio-app__result" aria-label="Resultado do Creative Studio">
           <div className="creative-studio-app__result-header">
             <div>
-              <span>Optional refinement</span>
-              <h2>Editable composition</h2>
+              <span>Refinamento opcional</span>
+              <h2>Composição editável</h2>
             </div>
             <div className="creative-studio-app__export-actions">
               <button
@@ -490,7 +491,7 @@ export function CreativeStudioApp() {
                 onClick={() => currentExportPage && void runExport(() =>
                   exportAndSaveCreativeRevision(currentExportPage))}
               >
-                Export PNG
+                Exportar PNG
               </button>
               <button
                 type="button"
@@ -498,7 +499,7 @@ export function CreativeStudioApp() {
                 onClick={() => void runExport(() =>
                   exportAndSaveCreativePagesZip(exportPages, 'inest-creative-pages.zip'))}
               >
-                Export pages ZIP ({exportPages.length})
+                Exportar páginas em ZIP ({exportPages.length})
               </button>
             </div>
           </div>
@@ -513,7 +514,7 @@ export function CreativeStudioApp() {
             locks={locks}
             onLocksChange={handleLocksChange}
             onWorkingElementsChange={handleWorkingElementsChange}
-            onInvariantViolation={() => setStatus('A locked property blocked that edit.')}
+            onInvariantViolation={() => setStatus('Uma propriedade bloqueada impediu essa edição.')}
           />
         </section>
       ) : null}

@@ -56,7 +56,7 @@ function waitForImage(image: HTMLImageElement) {
     }
     const onError = () => {
       cleanup()
-      reject(new Error('A Creative Studio asset could not be loaded for export.'))
+      reject(new Error('Não foi possível carregar uma imagem do Creative Studio para exportação.'))
     }
     const cleanup = () => {
       image.removeEventListener('load', onLoad)
@@ -71,7 +71,7 @@ function blobToDataUrl(blob: Blob) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(String(reader.result))
-    reader.onerror = () => reject(reader.error ?? new Error('Could not prepare an asset for export.'))
+    reader.onerror = () => reject(reader.error ?? new Error('Não foi possível preparar uma imagem para exportação.'))
     reader.readAsDataURL(blob)
   })
 }
@@ -85,7 +85,7 @@ async function inlineImages(node: HTMLElement) {
       if (source.startsWith('data:')) return
 
       const response = await fetch(source)
-      if (!response.ok) throw new Error('A Creative Studio asset could not be prepared for export.')
+      if (!response.ok) throw new Error('Não foi possível preparar uma imagem do Creative Studio para exportação.')
       image.src = await blobToDataUrl(await response.blob())
       await waitForImage(image)
     }),
@@ -102,16 +102,16 @@ function assertResolvedAssets(page: CreativeExportPage) {
     .filter(isVisualAssetElement)
     .find((element) => !page.resolveAssetUrl(element.assetId))
   if (unresolved) {
-    throw new Error(`Creative Studio asset ${unresolved.assetId} is unavailable for export.`)
+    throw new Error(`A imagem ${unresolved.assetId} não está disponível para exportação.`)
   }
 }
 
 function assertSupportedCanvas(canvas: CanvasSpec) {
   if (canvas.format === 'feed-4-5' && (canvas.width !== 1080 || canvas.height !== 1350)) {
-    throw new Error('Feed 4:5 exports must use a 1080 × 1350 canvas.')
+    throw new Error('A exportação de Feed 4:5 deve usar um canvas de 1080 × 1350.')
   }
   if (canvas.format === 'story-9-16' && (canvas.width !== 1080 || canvas.height !== 1920)) {
-    throw new Error('Story 9:16 exports must use a 1080 × 1920 canvas.')
+    throw new Error('A exportação de Stories 9:16 deve usar um canvas de 1080 × 1920.')
   }
 }
 
@@ -135,7 +135,7 @@ async function renderExportPage(page: CreativeExportPage, options: CreativeExpor
       ),
     )
     const canvasNode = host.firstElementChild as HTMLElement | null
-    if (!canvasNode) throw new Error('Creative Studio export canvas could not be rendered.')
+    if (!canvasNode) throw new Error('Não foi possível renderizar o canvas de exportação do Creative Studio.')
 
     await waitForFonts()
     await nextPaint()
@@ -149,7 +149,7 @@ async function renderExportPage(page: CreativeExportPage, options: CreativeExpor
       backgroundColor: page.canvas.background,
       cacheBust: false,
     })
-    if (!blob) throw new Error('Creative Studio PNG export produced no image data.')
+    if (!blob) throw new Error('A exportação PNG do Creative Studio não produziu dados de imagem.')
     return blob
   } finally {
     root.unmount()
@@ -166,7 +166,7 @@ export function exportCreativeRevisionPng(
 }
 
 export async function exportCreativePagesZip(pages: CreativeExportPage[]) {
-  if (pages.length === 0) throw new Error('Select at least one Creative Studio page to export.')
+  if (pages.length === 0) throw new Error('Selecione ao menos uma página do Creative Studio para exportar.')
 
   const zip = new JSZip()
   for (const [index, page] of pages.entries()) {

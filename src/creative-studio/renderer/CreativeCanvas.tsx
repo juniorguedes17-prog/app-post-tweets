@@ -15,6 +15,7 @@ import {
   resizeCompositionElement,
 } from '../editor/editorOperations'
 import { SceneElementView } from './SceneElementView'
+import { semanticRoleLabel } from '../presentationLabels'
 
 export type CreativeCanvasProps = {
   canvas: CanvasSpec
@@ -171,7 +172,7 @@ export function CreativeCanvas({
               }}
               role="button"
               tabIndex={0}
-              aria-label={`Select ${element.semanticRole} element`}
+              aria-label={`Selecionar elemento: ${semanticRoleLabel(element.semanticRole)}`}
               onPointerDown={(event) => beginInteraction(event, element, 'move')}
               onPointerMove={updateInteraction}
               onPointerUp={finishInteraction}
@@ -185,7 +186,7 @@ export function CreativeCanvas({
                 <button
                   type="button"
                   className="creative-studio-scene-element__resize-handle"
-                  aria-label="Resize selected element"
+                  aria-label="Redimensionar elemento selecionado"
                   onPointerDown={(event) => beginInteraction(event, element, 'resize')}
                   onPointerMove={updateInteraction}
                   onPointerUp={finishInteraction}

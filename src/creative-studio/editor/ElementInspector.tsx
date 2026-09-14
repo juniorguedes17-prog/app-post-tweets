@@ -12,6 +12,11 @@ import type {
   ShapeElement,
   TextElement,
 } from '../domain/sceneGraph'
+import {
+  compositionElementTypeLabel,
+  lockScopeLabel,
+  semanticRoleLabel,
+} from '../presentationLabels'
 
 export type ElementInspectorProps = {
   element?: CompositionElement
@@ -91,26 +96,26 @@ function ColorField({
         <input
           type="color"
           value={inputValue}
-          aria-label={`${label} color picker`}
+          aria-label={`Seletor de cor: ${label}`}
           disabled={disabled}
           onChange={(event) => onChange(event.currentTarget.value)}
         />
         <input
           type="text"
           value={value ?? ''}
-          aria-label={`${label} color value`}
+          aria-label={`Valor da cor: ${label}`}
           disabled={disabled}
           onChange={(event) => onChange(event.currentTarget.value)}
         />
       </div>
       {paletteColors.length > 0 ? (
-        <div className="creative-studio-inspector__swatches" aria-label="Brand and project colors">
+        <div className="creative-studio-inspector__swatches" aria-label="Cores da marca e do projeto">
           {paletteColors.map((color) => (
             <button
               key={color}
               type="button"
               title={color}
-              aria-label={`Use color ${color}`}
+              aria-label={`Usar cor ${color}`}
               style={{ backgroundColor: color }}
               disabled={disabled}
               onClick={() => onChange(color)}
@@ -144,7 +149,7 @@ function TextInspector({
   return (
     <>
       <label className="creative-studio-inspector__field">
-        <span>Content</span>
+        <span>Conteúdo</span>
         <textarea
           value={element.content}
           rows={4}
@@ -153,7 +158,7 @@ function TextInspector({
         />
       </label>
       <label className="creative-studio-inspector__field">
-        <span>Font family</span>
+        <span>Família tipográfica</span>
         <input
           type="text"
           list={fontListId}
@@ -169,7 +174,7 @@ function TextInspector({
       </label>
       <div className="creative-studio-inspector__grid">
         <NumberField
-          label="Weight"
+          label="Peso"
           value={element.style.fontWeight}
           min={100}
           max={900}
@@ -178,14 +183,14 @@ function TextInspector({
           onChange={(fontWeight) => updateStyle({ fontWeight })}
         />
         <NumberField
-          label="Size"
+          label="Tamanho"
           value={element.style.fontSize}
           min={1}
           disabled={styleLocked}
           onChange={(fontSize) => updateStyle({ fontSize })}
         />
         <NumberField
-          label="Line height"
+          label="Altura da linha"
           value={element.style.lineHeight}
           min={0.1}
           step={0.05}
@@ -193,7 +198,7 @@ function TextInspector({
           onChange={(lineHeight) => updateStyle({ lineHeight })}
         />
         <NumberField
-          label="Letter spacing"
+          label="Espaçamento entre letras"
           value={element.style.letterSpacing}
           step={0.1}
           disabled={styleLocked}
@@ -201,7 +206,7 @@ function TextInspector({
         />
       </div>
       <label className="creative-studio-inspector__field">
-        <span>Alignment</span>
+        <span>Alinhamento</span>
         <select
           value={element.style.textAlign}
           disabled={styleLocked}
@@ -209,13 +214,13 @@ function TextInspector({
             updateStyle({ textAlign: event.currentTarget.value as TextElement['style']['textAlign'] })
           }
         >
-          <option value="left">Left</option>
-          <option value="center">Center</option>
-          <option value="right">Right</option>
+          <option value="left">Esquerda</option>
+          <option value="center">Centro</option>
+          <option value="right">Direita</option>
         </select>
       </label>
       <ColorField
-        label="Text"
+        label="Texto"
         value={element.style.color}
         paletteColors={paletteColors}
         disabled={styleLocked}
@@ -246,7 +251,7 @@ function VisualInspector({
   return (
     <>
       <label className="creative-studio-inspector__field">
-        <span>Asset</span>
+        <span>Imagem</span>
         <select
           value={element.assetId}
           disabled={assetLocked}
@@ -265,7 +270,7 @@ function VisualInspector({
         </select>
       </label>
       <label className="creative-studio-inspector__field">
-        <span>Fit</span>
+        <span>Ajuste</span>
         <select
           value={element.style.fit}
           disabled={styleLocked}
@@ -273,20 +278,20 @@ function VisualInspector({
             updateStyle({ fit: event.currentTarget.value as VisualElement['style']['fit'] })
           }
         >
-          <option value="cover">Cover</option>
-          <option value="contain">Contain</option>
-          <option value="fill">Fill</option>
+          <option value="cover">Cobrir</option>
+          <option value="contain">Conter</option>
+          <option value="fill">Preencher</option>
         </select>
       </label>
       <div className="creative-studio-inspector__grid">
         <NumberField
-          label="Crop X"
+          label="Recorte X"
           value={element.style.crop.x}
           disabled={cropLocked}
           onChange={(x) => updateStyle({ crop: { ...element.style.crop, x } })}
         />
         <NumberField
-          label="Crop Y"
+          label="Recorte Y"
           value={element.style.crop.y}
           disabled={cropLocked}
           onChange={(y) => updateStyle({ crop: { ...element.style.crop, y } })}
@@ -300,7 +305,7 @@ function VisualInspector({
           onChange={(zoom) => updateStyle({ crop: { ...element.style.crop, zoom } })}
         />
         <NumberField
-          label="Radius"
+          label="Raio"
           value={element.style.borderRadius}
           min={0}
           disabled={styleLocked}
@@ -328,7 +333,7 @@ function ShapeInspector({
   return (
     <>
       <label className="creative-studio-inspector__field">
-        <span>Shape</span>
+        <span>Forma</span>
         <select
           value={element.style.shape}
           disabled={styleLocked}
@@ -336,28 +341,28 @@ function ShapeInspector({
             updateStyle({ shape: event.currentTarget.value as ShapeElement['style']['shape'] })
           }
         >
-          <option value="rectangle">Rectangle</option>
-          <option value="circle">Circle</option>
-          <option value="line">Line</option>
-          <option value="blob">Blob</option>
+          <option value="rectangle">Retângulo</option>
+          <option value="circle">Círculo</option>
+          <option value="line">Linha</option>
+          <option value="blob">Forma orgânica</option>
         </select>
       </label>
       <ColorField
-        label="Fill"
+        label="Preenchimento"
         value={element.style.fill}
         paletteColors={paletteColors}
         disabled={styleLocked}
         onChange={(fill) => updateStyle({ fill })}
       />
       <ColorField
-        label="Stroke"
+        label="Contorno"
         value={element.style.stroke}
         paletteColors={paletteColors}
         disabled={styleLocked}
         onChange={(stroke) => updateStyle({ stroke })}
       />
       <NumberField
-        label="Stroke width"
+        label="Espessura do contorno"
         value={element.style.strokeWidth ?? 0}
         min={0}
         disabled={styleLocked}
@@ -384,14 +389,14 @@ function AnnotationInspector({
   return (
     <>
       <ColorField
-        label="Annotation"
+        label="Anotação"
         value={element.style.color}
         paletteColors={paletteColors}
         disabled={styleLocked}
         onChange={(color) => updateStyle({ color })}
       />
       <NumberField
-        label="Stroke width"
+        label="Espessura do contorno"
         value={element.style.strokeWidth ?? 0}
         min={0}
         disabled={styleLocked}
@@ -427,8 +432,8 @@ export function ElementInspector({
   if (!element) {
     return (
       <aside className="creative-studio-inspector">
-        <h2>Inspector</h2>
-        <p className="creative-studio-inspector__empty">Select an element on the canvas.</p>
+        <h2>Inspetor</h2>
+        <p className="creative-studio-inspector__empty">Selecione um elemento no canvas.</p>
       </aside>
     )
   }
@@ -445,14 +450,14 @@ export function ElementInspector({
     <aside className="creative-studio-inspector">
       <div className="creative-studio-inspector__heading">
         <div>
-          <span>{element.type}</span>
-          <h2>{element.semanticRole}</h2>
+          <span>{compositionElementTypeLabel(element.type)}</span>
+          <h2>{semanticRoleLabel(element.semanticRole)}</h2>
         </div>
         <code>{element.id}</code>
       </div>
 
       <section className="creative-studio-inspector__section">
-        <h3>Geometry</h3>
+        <h3>Geometria</h3>
         <div className="creative-studio-inspector__grid">
           <NumberField
             label="X"
@@ -467,27 +472,27 @@ export function ElementInspector({
             onChange={(y) => updateBase({ y })}
           />
           <NumberField
-            label="Width"
+          label="Largura"
             value={element.width}
             min={1}
             disabled={dimensionsLocked}
             onChange={(width) => updateBase({ width: Math.max(1, width) })}
           />
           <NumberField
-            label="Height"
+          label="Altura"
             value={element.height}
             min={1}
             disabled={dimensionsLocked}
             onChange={(height) => updateBase({ height: Math.max(1, height) })}
           />
           <NumberField
-            label="Rotation"
+          label="Rotação"
             value={element.rotation}
             disabled={appearanceLocked}
             onChange={(rotation) => updateBase({ rotation })}
           />
           <NumberField
-            label="Opacity"
+          label="Opacidade"
             value={element.opacity}
             min={0}
             max={1}
@@ -499,7 +504,7 @@ export function ElementInspector({
       </section>
 
       <section className="creative-studio-inspector__section">
-        <h3>Element</h3>
+        <h3>Elemento</h3>
         {element.type === 'text' ? (
           <TextInspector
             element={element}
@@ -535,13 +540,13 @@ export function ElementInspector({
         ) : null}
         {element.type === 'group' ? (
           <p className="creative-studio-inspector__note">
-            Group with {element.children.length} referenced element(s).
+            Grupo com {element.children.length} elemento(s) referenciado(s).
           </p>
         ) : null}
       </section>
       {onToggleLock ? (
         <section className="creative-studio-inspector__section">
-          <h3>Locks</h3>
+          <h3>Bloqueios</h3>
           <div className="creative-studio-inspector__locks">
             {lockableScopes.map((scope) => {
               const locked = isScopeLocked(lockedScopes, scope)
@@ -558,7 +563,7 @@ export function ElementInspector({
                   disabled={disabled}
                   onClick={() => onToggleLock(scope)}
                 >
-                  {locked ? 'Unlock' : 'Lock'} {scope}
+                  {locked ? 'Desbloquear' : 'Bloquear'} {lockScopeLabel(scope)}
                 </button>
               )
             })}

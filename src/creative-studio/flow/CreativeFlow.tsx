@@ -28,6 +28,13 @@ import {
 import { CreativeStudioRepository } from '../persistence/creativeStudioRepository'
 import { propagateLocksToRevision } from '../locks/lockEngine'
 import {
+  assetKindLabel,
+  brandPresenceLabel,
+  compositionStrategyLabel,
+  creativeObjectiveLabel,
+  creativeStyleLabel,
+} from '../presentationLabels'
+import {
   attachAsset,
   attachReference,
   createUploadedImageAsset,
@@ -37,6 +44,21 @@ import {
   selectCreativeDirection,
 } from './flowState'
 import './creativeFlow.css'
+
+const typographyRoleLabels = {
+  display: 'Destaque',
+  body: 'Corpo',
+  caption: 'Legenda',
+} as const
+
+const paletteRoleLabels = {
+  primary: 'Primária',
+  secondary: 'Secundária',
+  accent: 'Destaque',
+  background: 'Fundo',
+  text: 'Texto',
+  muted: 'Suave',
+} as const
 
 export type CreativeFlowPersistence = Pick<
   CreativeStudioRepository,
@@ -131,7 +153,7 @@ async function imageDimensions(file: File): Promise<{ width: number; height: num
     return await new Promise((resolve, reject) => {
       const image = new Image()
       image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight })
-      image.onerror = () => reject(new Error('Unable to read image dimensions.'))
+      image.onerror = () => reject(new Error('Não foi possível ler as dimensões da imagem.'))
       image.src = objectUrl
     })
   } finally {
@@ -270,7 +292,7 @@ export function CreativeFlow({
       await repository.saveAssetForDocument(asset, file, nextDocument)
       setAssets((current) => [...current, asset])
       setActiveDocument(nextDocument)
-      setMessage('Asset saved locally.')
+      setMessage('Imagem salva neste dispositivo.')
     })
   }
 
@@ -280,7 +302,7 @@ export function CreativeFlow({
       await repository.removeAssetFromDocument(asset.id, nextDocument)
       setAssets((current) => current.filter((item) => item.id !== asset.id))
       setActiveDocument(nextDocument)
-      setMessage('Asset removed.')
+      setMessage('Imagem removida.')
     })
   }
 
@@ -306,7 +328,7 @@ export function CreativeFlow({
       setReferences((current) => [...current, reference])
       setActiveDocument(nextDocument)
       setReferencePurpose('')
-      setMessage('Visual reference saved as structured input.')
+      setMessage('Referência visual salva como entrada estruturada.')
     })
   }
 
@@ -317,7 +339,7 @@ export function CreativeFlow({
       setReferences((current) => current.filter((item) => item.id !== reference.id))
       setAssets((current) => current.filter((asset) => asset.id !== reference.assetId))
       setActiveDocument(nextDocument)
-      setMessage('Visual reference removed.')
+      setMessage('Referência visual removida.')
     })
   }
 
@@ -407,7 +429,7 @@ export function CreativeFlow({
       const nextBrief = { ...draftBrief, updatedAt: now }
       const result = await engine.proposeDirections(engineInput(nextBrief))
       const nextDirections = result.output
-      if (nextDirections.length !== 3) throw new Error('Creative Engine must return three directions.')
+      if (nextDirections.length !== 3) throw new Error('O Creative Engine deve retornar três direções.')
       const nextReferences = consumeReferenceAnalyses()
       const nextDocument = {
         ...selectCreativeDirection(activeDocument, undefined, now),
@@ -419,7 +441,7 @@ export function CreativeFlow({
       setDirections(nextDirections)
       setReferences(nextReferences)
       onSelectedDirectionChange?.(undefined)
-      setMessage('Three Creative Engine directions generated and saved.')
+      setMessage('Três direções do Creative Engine foram geradas e salvas.')
     })
   }
 
@@ -431,7 +453,7 @@ export function CreativeFlow({
       onSelectedDirectionChange?.(direction)
       const result = await engine.compose(engineInput(draftBrief, direction))
       await persistEngineRevision(result.output, direction, nextDocument)
-      setMessage(`${direction.name} selected and composed as revision ${result.output.revisionNumber}.`)
+      setMessage(`${direction.name} foi selecionada e composta como revisão ${result.output.revisionNumber}.`)
     })
   }
 
@@ -451,7 +473,7 @@ export function CreativeFlow({
         activeDocument,
         propagatedLocks,
       )
-      setMessage(`${REFINEMENT_INTENT_LABELS[intent]} created revision ${result.output.revisionNumber}.`)
+      setMessage(`${REFINEMENT_INTENT_LABELS[intent]} criou a revisão ${result.output.revisionNumber}.`)
     })
   }
 
@@ -464,9 +486,9 @@ export function CreativeFlow({
   } as CSSProperties
 
   return (
-    <section className="creative-studio-flow" style={previewStyle} aria-label="Creative direction flow">
+    <section className="creative-studio-flow" style={previewStyle} aria-label="Fluxo de direções criativas">
       <header className="creative-studio-flow__header">
-        <div><span>Creative Studio</span><h1>Brief → Directions</h1></div>
+        <div><span>Creative Studio</span><h1>Briefing → Direções</h1></div>
         <p>{project.name}</p>
       </header>
 
@@ -476,9 +498,9 @@ export function CreativeFlow({
           onSubmit={(event) => { event.preventDefault(); generateDirections() }}
         >
           <fieldset className="creative-studio-flow__section" disabled={busy}>
-            <legend>Brief</legend>
+            <legend>Briefing</legend>
             <label className="creative-studio-flow__field creative-studio-flow__field--wide">
-              <span>Content</span>
+              <span>Conteúdo</span>
               <textarea
                 rows={4}
                 value={draftBrief.content}
@@ -486,14 +508,14 @@ export function CreativeFlow({
               />
             </label>
             <label className="creative-studio-flow__field creative-studio-flow__field--wide">
-              <span>Headline</span>
+              <span>Título</span>
               <input
                 value={draftBrief.headline}
                 onChange={(event) => updateBrief({ headline: event.currentTarget.value })}
               />
             </label>
             <label className="creative-studio-flow__field creative-studio-flow__field--wide">
-              <span>Supporting text</span>
+              <span>Texto de apoio</span>
               <textarea
                 rows={3}
                 value={draftBrief.body ?? ''}
@@ -508,25 +530,25 @@ export function CreativeFlow({
               />
             </label>
             <label className="creative-studio-flow__field">
-              <span>Objective</span>
+              <span>Objetivo</span>
               <select
                 value={draftBrief.objective}
                 onChange={(event) => updateBrief({ objective: event.currentTarget.value as CreativeObjective })}
               >
-                {objectives.map((objective) => <option key={objective}>{objective}</option>)}
+                {objectives.map((objective) => <option key={objective}>{creativeObjectiveLabel(objective)}</option>)}
               </select>
             </label>
             <label className="creative-studio-flow__field">
-              <span>Style</span>
+              <span>Estilo</span>
               <select
                 value={draftBrief.style}
                 onChange={(event) => updateBrief({ style: event.currentTarget.value as CreativeStyle })}
               >
-                {styles.map((style) => <option key={style}>{style}</option>)}
+                {styles.map((style) => <option key={style}>{creativeStyleLabel(style)}</option>)}
               </select>
             </label>
             <label className="creative-studio-flow__field">
-              <span>Format</span>
+              <span>Formato</span>
               <select
                 value={draftBrief.canvas.format}
                 onChange={(event) => updateBrief({
@@ -535,15 +557,15 @@ export function CreativeFlow({
               >
                 <option value="feed-4-5">Feed 4:5</option>
                 <option value="story-9-16">Stories 9:16</option>
-                <option value="square-1-1">Square 1:1</option>
+                <option value="square-1-1">Quadrado 1:1</option>
                 <option value="tweet-card">Tweet Card</option>
-                <option value="custom">Custom</option>
+                <option value="custom">Personalizado</option>
               </select>
             </label>
             {draftBrief.canvas.format === 'custom' ? (
               <div className="creative-studio-flow__inline-fields creative-studio-flow__field--wide">
                 <label className="creative-studio-flow__field">
-                  <span>Width</span>
+                  <span>Largura</span>
                   <input
                     type="number" min={1} value={draftBrief.canvas.width}
                     onChange={(event) => updateBrief({ canvas: {
@@ -552,7 +574,7 @@ export function CreativeFlow({
                   />
                 </label>
                 <label className="creative-studio-flow__field">
-                  <span>Height</span>
+                  <span>Altura</span>
                   <input
                     type="number" min={1} value={draftBrief.canvas.height}
                     onChange={(event) => updateBrief({ canvas: {
@@ -565,20 +587,20 @@ export function CreativeFlow({
           </fieldset>
 
           <fieldset className="creative-studio-flow__section" disabled={busy}>
-            <legend>Assets</legend>
+            <legend>Imagens</legend>
             <label className="creative-studio-flow__field">
-              <span>Asset role</span>
+              <span>Tipo de imagem</span>
               <select
                 value={assetKind}
                 onChange={(event) => setAssetKind(
                   event.currentTarget.value as Exclude<CreativeAssetKind, 'reference'>,
                 )}
               >
-                {assetKinds.map((kind) => <option key={kind}>{kind}</option>)}
+                {assetKinds.map((kind) => <option key={kind}>{assetKindLabel(kind)}</option>)}
               </select>
             </label>
             <label className="creative-studio-flow__upload">
-              <span>Add image asset</span>
+              <span>Adicionar imagem</span>
               <input type="file" accept="image/*" onChange={addAsset} />
             </label>
             <div className="creative-studio-flow__items creative-studio-flow__field--wide">
@@ -586,30 +608,30 @@ export function CreativeFlow({
                 <article key={asset.id} className="creative-studio-flow__item">
                   <div>
                     <strong>{asset.metadata?.originalFileName ?? asset.id}</strong>
-                    <span>{asset.kind} · {asset.width}×{asset.height}</span>
+                    <span>{assetKindLabel(asset.kind)} · {asset.width}×{asset.height}</span>
                   </div>
-                  <button type="button" onClick={() => removeAsset(asset)}>Remove</button>
+                  <button type="button" onClick={() => removeAsset(asset)}>Remover</button>
                 </article>
               ))}
             </div>
           </fieldset>
 
           <fieldset className="creative-studio-flow__section" disabled={busy}>
-            <legend>Visual references</legend>
+            <legend>Referências visuais</legend>
             <label className="creative-studio-flow__field">
-              <span>Purpose</span>
+              <span>Objetivo da referência</span>
               <input
                 value={referencePurpose}
-                placeholder="Hierarchy, rhythm, UGC feeling…"
+                placeholder="Hierarquia, ritmo, sensação UGC…"
                 onChange={(event) => setReferencePurpose(event.currentTarget.value)}
               />
             </label>
             <label className="creative-studio-flow__upload">
-              <span>Add reference</span>
+              <span>Adicionar referência</span>
               <input type="file" accept="image/*" onChange={addReference} />
             </label>
             <p className="creative-studio-flow__hint creative-studio-flow__field--wide">
-              References are analyzed as abstract visual signals, never copied as templates.
+              As referências são analisadas como sinais visuais abstratos e nunca copiadas como templates.
             </p>
             <div className="creative-studio-flow__items creative-studio-flow__field--wide">
               {references.map((reference) => {
@@ -618,9 +640,9 @@ export function CreativeFlow({
                   <article key={reference.id} className="creative-studio-flow__item">
                     <div>
                       <strong>{asset?.metadata?.originalFileName ?? reference.id}</strong>
-                      <span>{reference.purpose ?? 'General visual reference'}</span>
+                      <span>{reference.purpose ?? 'Referência visual geral'}</span>
                     </div>
-                    <button type="button" onClick={() => removeReference(reference)}>Remove</button>
+                    <button type="button" onClick={() => removeReference(reference)}>Remover</button>
                   </article>
                 )
               })}
@@ -628,7 +650,7 @@ export function CreativeFlow({
           </fieldset>
 
           <fieldset className="creative-studio-flow__section" disabled={busy}>
-            <legend>Creative controls</legend>
+            <legend>Controles criativos</legend>
             <label className="creative-studio-flow__field creative-studio-flow__field--wide">
               <span>Clean ↔ Raw: {Math.round(draftBrief.ugcIntensity.value * 100)}%</span>
               <input
@@ -640,35 +662,35 @@ export function CreativeFlow({
               />
             </label>
             <label className="creative-studio-flow__field">
-              <span>Composition</span>
+              <span>Composição</span>
               <select
                 value={draftBrief.composition}
                 onChange={(event) => updateBrief({
                   composition: event.currentTarget.value as CompositionStrategy,
                 })}
               >
-                {compositions.map((composition) => <option key={composition}>{composition}</option>)}
+                {compositions.map((composition) => <option key={composition}>{compositionStrategyLabel(composition)}</option>)}
               </select>
             </label>
             <label className="creative-studio-flow__field">
-              <span>Brand presence</span>
+              <span>Presença da marca</span>
               <select
                 value={draftBrief.brandPresence}
                 onChange={(event) => updateBrief({
                   brandPresence: event.currentTarget.value as BrandPresence,
                 })}
               >
-                {brandPresences.map((presence) => <option key={presence}>{presence}</option>)}
+                {brandPresences.map((presence) => <option key={presence}>{brandPresenceLabel(presence)}</option>)}
               </select>
             </label>
 
             <div className="creative-studio-flow__subsection creative-studio-flow__field--wide">
-              <h3>Project palette overrides</h3>
+              <h3>Paleta do projeto</h3>
               <div className="creative-studio-flow__palette">
                 {(['primary', 'secondary', 'accent', 'background', 'text', 'muted'] as const).map(
                   (key) => (
                     <label key={key} className="creative-studio-flow__color">
-                      <span>{key}</span>
+                      <span>{paletteRoleLabels[key]}</span>
                       <input
                         type="color" value={palette[key]}
                         onChange={(event) => updatePalette(key, event.currentTarget.value)}
@@ -696,26 +718,26 @@ export function CreativeFlow({
               </div>
               <div className="creative-studio-flow__custom-color">
                 <input
-                  aria-label="Custom color name" placeholder="Token name"
+                  aria-label="Nome da cor personalizada" placeholder="Nome da cor"
                   value={customColorName}
                   onChange={(event) => setCustomColorName(event.currentTarget.value)}
                 />
                 <input
-                  type="color" aria-label="Custom color value" value={customColorValue}
+                  type="color" aria-label="Valor da cor personalizada" value={customColorValue}
                   onChange={(event) => setCustomColorValue(event.currentTarget.value)}
                 />
-                <button type="button" onClick={addCustomColor}>Add color</button>
+                <button type="button" onClick={addCustomColor}>Adicionar cor</button>
               </div>
             </div>
 
             <div className="creative-studio-flow__subsection creative-studio-flow__field--wide">
-              <h3>Project typography overrides</h3>
+              <h3>Tipografia do projeto</h3>
               <div className="creative-studio-flow__typography">
                 {(['display', 'body', 'caption'] as const).map((role) => (
                   <div key={role} className="creative-studio-flow__type-row">
-                    <strong>{role}</strong>
+                    <strong>{typographyRoleLabels[role]}</strong>
                     <label className="creative-studio-flow__field">
-                      <span>Font family</span>
+                      <span>Família tipográfica</span>
                       <input
                         value={typography[role].fontFamily}
                         onChange={(event) => updateTypography(role, {
@@ -724,7 +746,7 @@ export function CreativeFlow({
                       />
                     </label>
                     <label className="creative-studio-flow__field">
-                      <span>Weight</span>
+                      <span>Peso</span>
                       <input
                         type="number" min={100} max={900} step={100}
                         value={typography[role].fontWeight}
@@ -734,7 +756,7 @@ export function CreativeFlow({
                       />
                     </label>
                     <label className="creative-studio-flow__field">
-                      <span>Line height</span>
+                      <span>Altura da linha</span>
                       <input
                         type="number" min={0.1} step={0.05}
                         value={typography[role].lineHeight ?? 1}
@@ -744,7 +766,7 @@ export function CreativeFlow({
                       />
                     </label>
                     <label className="creative-studio-flow__field">
-                      <span>Letter spacing</span>
+                      <span>Espaçamento entre letras</span>
                       <input
                         type="number" step={0.01}
                         value={typography[role].letterSpacing ?? 0}
@@ -754,22 +776,22 @@ export function CreativeFlow({
                       />
                     </label>
                     <label className="creative-studio-flow__field">
-                      <span>Alignment</span>
+                      <span>Alinhamento</span>
                       <select
                         value={typography[role].textAlign ?? 'left'}
                         onChange={(event) => updateTypography(role, {
                           textAlign: event.currentTarget.value as TypographyDefinition['textAlign'],
                         })}
                       >
-                        <option value="left">Left</option>
-                        <option value="center">Center</option>
-                        <option value="right">Right</option>
+                          <option value="left">Esquerda</option>
+                          <option value="center">Centro</option>
+                          <option value="right">Direita</option>
                       </select>
                     </label>
                   </div>
                 ))}
                 <label className="creative-studio-flow__field">
-                  <span>Allowed fonts (comma separated)</span>
+                  <span>Fontes permitidas (separadas por vírgula)</span>
                   <input
                     value={typography.allowedFonts.join(', ')}
                     onChange={(event) => setBrandOverrides((current) => ({
@@ -787,7 +809,7 @@ export function CreativeFlow({
           </fieldset>
 
           <button className="creative-studio-flow__generate" type="submit" disabled={busy}>
-            {busy ? 'Creating…' : 'Generate 3 directions with AI'}
+            {busy ? 'Criando…' : 'Gerar 3 direções com IA'}
           </button>
           {error ? (
             <p className="creative-studio-flow__feedback creative-studio-flow__feedback--error" role="alert">
@@ -796,13 +818,13 @@ export function CreativeFlow({
           ) : null}
           {message ? <p className="creative-studio-flow__feedback" role="status">{message}</p> : null}
         </form>
-        <aside className="creative-studio-flow__directions" aria-label="Creative directions">
+        <aside className="creative-studio-flow__directions" aria-label="Direções criativas">
           <div className="creative-studio-flow__directions-heading">
-            <span>Direction set</span><strong>{directions.length}/3</strong>
+            <span>Direções criativas</span><strong>{directions.length}/3</strong>
           </div>
           {directions.length === 0 ? (
             <p className="creative-studio-flow__empty">
-              Complete the brief and ask the iNest Creative Engine for three directions.
+              Complete o briefing e peça três direções ao iNest Creative Engine.
             </p>
           ) : (
             directions.map((direction, index) => (
@@ -814,17 +836,17 @@ export function CreativeFlow({
               >
                 <div className={`creative-studio-direction__preview creative-studio-direction__preview--${index + 1}`}>
                   <div className="creative-studio-direction__photo" />
-                  <strong>{draftBrief.headline || 'Your headline'}</strong>
+                  <strong>{draftBrief.headline || 'Seu título'}</strong>
                   <span>{direction.typographyCharacter[0]}</span>
                   <i />
                 </div>
                 <div className="creative-studio-direction__content">
-                  <span>Direction {String.fromCharCode(65 + index)}</span>
+                  <span>Direção {String.fromCharCode(65 + index)}</span>
                   <h2>{direction.name}</h2>
                   <p>{direction.concept}</p>
                   <small>{direction.rationale}</small>
                   <div className="creative-studio-direction__tags">
-                    <span>{direction.compositionStrategy}</span>
+                    <span>{compositionStrategyLabel(direction.compositionStrategy)}</span>
                     <span>Raw {Math.round(direction.ugcIntensity.value * 100)}%</span>
                   </div>
                   <button
@@ -832,19 +854,19 @@ export function CreativeFlow({
                     aria-pressed={direction.id === selectedDirection?.id}
                     onClick={() => chooseDirection(direction)}
                   >
-                    {direction.id === selectedDirection?.id ? 'Selected' : 'Choose direction'}
+                    {direction.id === selectedDirection?.id ? 'Selecionada' : 'Escolher direção'}
                   </button>
                 </div>
               </article>
             ))
           )}
           {selectedDirection ? (
-            <section className="creative-studio-flow__refinements" aria-label="Refine composition">
+            <section className="creative-studio-flow__refinements" aria-label="Refinar composição">
               <div>
-                <span>Editable composition</span>
-                <strong>Revision {activeRevision.revisionNumber}</strong>
+                <span>Composição editável</span>
+                <strong>Revisão {activeRevision.revisionNumber}</strong>
               </div>
-              <p>Each refinement creates a new immutable revision and respects active locks.</p>
+              <p>Cada refinamento cria uma nova revisão imutável e respeita os bloqueios ativos.</p>
               <div className="creative-studio-flow__refinement-actions">
                 {(Object.entries(REFINEMENT_INTENT_LABELS) as Array<[RefinementIntent, string]>).map(
                   ([intent, label]) => (

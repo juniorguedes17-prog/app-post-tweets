@@ -49,7 +49,7 @@ async function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(String(reader.result))
-    reader.onerror = () => reject(reader.error ?? new Error('Unable to encode reference image.'))
+    reader.onerror = () => reject(reader.error ?? new Error('Não foi possível codificar a imagem de referência.'))
     reader.readAsDataURL(blob)
   })
 }
@@ -104,7 +104,7 @@ export class OpenAICreativeEngineProvider implements CreativeEngineProvider {
       const payload = await response.json().catch(() => ({}))
       if (!response.ok) {
         throw new CreativeEngineGatewayError(
-          typeof payload.error === 'string' ? payload.error : 'Creative Engine request failed.',
+          typeof payload.error === 'string' ? payload.error : 'A solicitação ao Creative Engine falhou.',
           response.status,
         )
       }
@@ -165,7 +165,7 @@ export class OpenAICreativeEngineProvider implements CreativeEngineProvider {
       userReferences: await this.userReferences(input),
     })
     if (response.directions.length !== 3) {
-      throw new Error('Creative Engine must return exactly three directions.')
+      throw new Error('O Creative Engine deve retornar exatamente três direções.')
     }
     this.retainAnalyses(response.referenceAnalyses)
     return { output: response.directions, metadata: response.metadata }
@@ -175,7 +175,7 @@ export class OpenAICreativeEngineProvider implements CreativeEngineProvider {
     pathname: '/api/creative/composition' | '/api/creative/refine',
     input: CreativeEngineInput,
   ): Promise<CreativeEngineResult<CompositionRevision>> {
-    if (!input.previousRevision) throw new Error('Composition generation requires a base revision.')
+    if (!input.previousRevision) throw new Error('A geração de composição exige uma revisão-base.')
     const response = await this.request<GatewayResponse<{
       revision: CompositionRevision
       generatedAssets?: Array<{ asset: CreativeAsset; base64: string; metadata?: GenerationMetadata }>
@@ -196,7 +196,7 @@ export class OpenAICreativeEngineProvider implements CreativeEngineProvider {
   }
 
   async refine(input: CreativeEngineInput): Promise<CreativeEngineResult<CompositionRevision>> {
-    if (!input.previousRevision) throw new Error('Refinement requires a previous revision.')
+    if (!input.previousRevision) throw new Error('O refinamento exige uma revisão anterior.')
     const effectiveLocks = locksForRefinementIntent(input)
     const result = await this.compositionRequest('/api/creative/refine', {
       ...input,
@@ -204,7 +204,7 @@ export class OpenAICreativeEngineProvider implements CreativeEngineProvider {
     })
     const validation = validateLockedCandidate(input.previousRevision, result.output, effectiveLocks)
     if (!validation.valid) {
-      throw new Error(`Refinement violated ${validation.violations.length} protected invariant(s).`)
+      throw new Error(`O refinamento violou ${validation.violations.length} invariante(s) protegida(s).`)
     }
     return result
   }

@@ -35,7 +35,7 @@ export function CreativeExportCanvas({
         height: canvas.height,
         background: canvas.background,
       }}
-      aria-label="Creative Studio export canvas"
+      aria-label="Canvas de exportação do Creative Studio"
     >
       {orderedElements.map(({ element }) => {
         if (!element.visible) return null

@@ -97,54 +97,54 @@ export function CreativeStudioEditor({
   const selectedElementHasLocks = selectedLockedScopes.length > 0
 
   return (
-    <section className="creative-studio-editor" aria-label="Creative Studio editor">
+    <section className="creative-studio-editor" aria-label="Editor do Creative Studio">
       <header className="creative-studio-editor__toolbar">
         <div className="creative-studio-editor__revision">
-          <strong>Composition</strong>
-          <span>Revision {revision.revisionNumber}</span>
+          <strong>Composição</strong>
+          <span>Revisão {revision.revisionNumber}</span>
         </div>
-        <div className="creative-studio-editor__actions" aria-label="History actions">
+        <div className="creative-studio-editor__actions" aria-label="Ações de histórico">
           <button type="button" disabled={!editor.canUndo} onClick={editor.undo}>
-            Undo
+            Desfazer
           </button>
           <button type="button" disabled={!editor.canRedo} onClick={editor.redo}>
-            Redo
+            Refazer
           </button>
         </div>
-        <div className="creative-studio-editor__actions" aria-label="Element actions">
+        <div className="creative-studio-editor__actions" aria-label="Ações do elemento">
           <button
             type="button"
             disabled={!editor.selectedElement || selectedElementFullyLocked}
             onClick={() => editor.moveSelectedLayer('backward')}
           >
-            Send backward
+            Enviar para trás
           </button>
           <button
             type="button"
             disabled={!editor.selectedElement || selectedElementFullyLocked}
             onClick={() => editor.moveSelectedLayer('forward')}
           >
-            Bring forward
+            Trazer para frente
           </button>
           <button
             type="button"
             disabled={!editor.selectedElement || selectedElementHasLocks}
             onClick={editor.duplicateSelected}
           >
-            Duplicate
+            Duplicar
           </button>
           <button
             type="button"
             disabled={!editor.selectedElement}
             onClick={editor.deleteSelected}
           >
-            Delete
+            Excluir
           </button>
         </div>
       </header>
       {!editor.lastInvariantValidation?.valid ? (
         <p className="creative-studio-editor__lock-alert" role="alert">
-          A protected element cannot be changed while its applicable lock is active.
+          Um elemento protegido não pode ser alterado enquanto o bloqueio correspondente estiver ativo.
         </p>
       ) : null}
 
@@ -175,14 +175,14 @@ export function CreativeStudioEditor({
             className="creative-studio-editor__mobile-inspector-toggle"
             onClick={() => setMobileInspectorOpen(true)}
           >
-            Edit {editor.selectedElement.semanticRole}
+            Editar elemento
           </button>
         ) : null}
         {mobileInspectorOpen && editor.selectedElement ? (
           <button
             type="button"
             className="creative-studio-editor__mobile-sheet-backdrop"
-            aria-label="Close element inspector"
+            aria-label="Fechar inspetor do elemento"
             onClick={() => setMobileInspectorOpen(false)}
           />
         ) : null}
@@ -198,7 +198,7 @@ export function CreativeStudioEditor({
             className="creative-studio-editor__mobile-sheet-close"
             onClick={() => setMobileInspectorOpen(false)}
           >
-            Done
+            Concluir
           </button>
           <ElementInspector
             element={editor.selectedElement}
