@@ -175,9 +175,17 @@ function workspaceFromRestore(
   directions: Workspace['directions'],
 ): Workspace {
   if (!restored.brandProfile) throw new Error('Restored Creative Studio document has no BrandProfile.')
-  const currentRevision = restored.workingState
-    ? { ...restored.currentRevision, elements: restored.workingState.elements }
-    : restored.currentRevision
+  const withWorkingState = (revision: CompositionRevision) =>
+    restored.workingState?.baseRevisionId === revision.id
+      ? { ...revision, elements: restored.workingState.elements }
+      : revision
+  const pages = restored.pages.map((page) => ({
+    ...page,
+    revision: withWorkingState(page.revision),
+  }))
+  const currentRevision = pages.find(
+    (page) => page.revision.id === restored.currentRevision.id,
+  )?.revision ?? withWorkingState(restored.currentRevision)
   return {
     project: restored.project,
     brief: restored.brief,
@@ -188,9 +196,7 @@ function workspaceFromRestore(
     assets: restored.assets,
     directions,
     locks: restored.locks,
-    pages: restored.pages.map((page) => page.revision.id === currentRevision.id
-      ? { ...page, revision: currentRevision }
-      : page),
+    pages,
   }
 }
 
@@ -236,6 +242,8 @@ export function CreativeStudioApp() {
   const [workingElements, setWorkingElements] = useState<CompositionElement[]>([])
   const [locks, setLocks] = useState<ElementLock[]>([])
   const [pages, setPages] = useState<CapturedPage[]>([])
+  const [selectedPageIds, setSelectedPageIds] = useState<CompositionRevisionId[]>([])
+  const [navigatingPage, setNavigatingPage] = useState(false)
   const [status, setStatus] = useState('Loading Creative Studio…')
   const [exporting, setExporting] = useState(false)
 
@@ -266,6 +274,7 @@ export function CreativeStudioApp() {
       setWorkingElements(loaded.revision.elements)
       setLocks(loaded.locks)
       setPages(loaded.pages)
+      setSelectedPageIds(loaded.pages.map((page) => page.revision.id))
       await hydrateAssets([
         ...loaded.revision.elements,
         ...loaded.pages.flatMap((page) => page.revision.elements),
@@ -303,6 +312,9 @@ export function CreativeStudioApp() {
       ...current.filter((page) => page.revision.id !== revision.id),
       { canvas: composition.canvas, revision },
     ])
+    setSelectedPageIds((current) => current.includes(revision.id)
+      ? current
+      : [...current, revision.id])
     await hydrateAssets(revision.elements, workspace?.assets ?? [])
     setStatus(`Revision ${revision.revisionNumber} ready and saved.`)
   }, [hydrateAssets, workspace?.assets])
@@ -337,6 +349,43 @@ export function CreativeStudioApp() {
       : page))
   }, [autosave, workspace])
 
+  const handlePageSelectionChange = useCallback((revisionId: CompositionRevisionId) => {
+    setSelectedPageIds((current) => current.includes(revisionId)
+      ? current.filter((id) => id !== revisionId)
+      : [...current, revisionId])
+  }, [])
+
+  const handlePageNavigation = useCallback(async (page: CapturedPage) => {
+    if (!workspace || page.revision.id === workspace.revision.id || navigatingPage) return
+    setNavigatingPage(true)
+    try {
+      await autosave.flush()
+      const updatedAt = Date.now()
+      const composition = {
+        ...workspace.composition,
+        canvas: page.canvas,
+        currentRevisionId: page.revision.id,
+        updatedAt,
+      }
+      const document = {
+        ...workspace.document,
+        currentRevisionId: page.revision.id,
+        updatedAt,
+      }
+      const nextLocks = await repository.getLocksForRevision(page.revision.id)
+      await repository.saveActiveDocumentPage(composition, document)
+      setWorkspace({ ...workspace, composition, document, revision: page.revision })
+      setWorkingElements(page.revision.elements)
+      setLocks(nextLocks)
+      await hydrateAssets(page.revision.elements, workspace.assets)
+      setStatus(`${page.canvas.format} page selected.`)
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Creative Studio page navigation failed.')
+    } finally {
+      setNavigatingPage(false)
+    }
+  }, [autosave, hydrateAssets, navigatingPage, repository, workspace])
+
   const currentExportPage = useMemo<CreativeExportPage | undefined>(() => workspace ? {
     canvas: workspace.composition.canvas,
     revision: { ...workspace.revision, elements: workingElements },
@@ -362,12 +411,14 @@ export function CreativeStudioApp() {
   }
 
   const editorRevision = { ...workspace.revision, elements: workingElements }
-  const exportPages: CreativeExportPage[] = pages.map((page, index) => ({
-    canvas: page.canvas,
-    revision: page.revision,
-    resolveAssetUrl,
-    fileName: `inest-creative-page-${String(index + 1).padStart(2, '0')}.png`,
-  }))
+  const exportPages: CreativeExportPage[] = pages
+    .filter((page) => selectedPageIds.includes(page.revision.id))
+    .map((page, index) => ({
+      canvas: page.canvas,
+      revision: page.revision,
+      resolveAssetUrl,
+      fileName: `inest-creative-page-${String(index + 1).padStart(2, '0')}.png`,
+    }))
 
   return (
     <main className="creative-studio-app">
@@ -386,6 +437,44 @@ export function CreativeStudioApp() {
         engineProvider={engine}
         onCompositionReady={handleCompositionReady}
       />
+
+      {pages.length > 0 ? (
+        <nav className="creative-studio-app__pages" aria-label="Creative Studio pages">
+          <div className="creative-studio-app__pages-heading">
+            <strong>Pages</strong>
+            <span>{selectedPageIds.length} selected for ZIP</span>
+          </div>
+          <ol className="creative-studio-app__page-list">
+            {pages.map((page, index) => {
+              const active = page.revision.id === workspace.revision.id
+              const selected = selectedPageIds.includes(page.revision.id)
+              return (
+                <li key={page.revision.id} className={active
+                  ? 'creative-studio-app__page creative-studio-app__page--active'
+                  : 'creative-studio-app__page'}>
+                  <button
+                    type="button"
+                    aria-pressed={active}
+                    disabled={navigatingPage}
+                    onClick={() => void handlePageNavigation(page)}
+                  >
+                    <strong>Page {index + 1}</strong>
+                    <span>{page.canvas.format} · {page.canvas.width}×{page.canvas.height}</span>
+                  </button>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={() => handlePageSelectionChange(page.revision.id)}
+                    />
+                    <span>Include in ZIP</span>
+                  </label>
+                </li>
+              )
+            })}
+          </ol>
+        </nav>
+      ) : null}
 
       {workspace.revision.elements.length > 0 ? (
         <section className="creative-studio-app__result" aria-label="Creative Studio result">

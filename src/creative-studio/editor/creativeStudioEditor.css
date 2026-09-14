@@ -428,10 +428,15 @@
   }
 
   .creative-studio-scene-element__resize-handle {
-    right: calc(-18px * var(--creative-studio-inverse-scale));
-    bottom: calc(-18px * var(--creative-studio-inverse-scale));
-    width: calc(36px * var(--creative-studio-inverse-scale));
-    height: calc(36px * var(--creative-studio-inverse-scale));
+    right: calc(-22px * var(--creative-studio-inverse-scale));
+    bottom: calc(-22px * var(--creative-studio-inverse-scale));
+    width: calc(44px * var(--creative-studio-inverse-scale));
+    height: calc(44px * var(--creative-studio-inverse-scale));
+  }
+
+  .creative-studio-inspector__swatches button {
+    width: 44px;
+    height: 44px;
   }
 }
 
@@ -565,7 +570,7 @@
   }
 
   .creative-studio-inspector__swatches button {
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
   }
 }

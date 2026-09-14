@@ -311,6 +311,29 @@ export class CreativeStudioRepository {
     await db.put('documents', document, document.id)
   }
 
+  async saveActiveDocumentPage(
+    composition: Composition,
+    document: CreativeDocument,
+  ): Promise<void> {
+    if (
+      document.compositionId !== composition.id ||
+      document.currentRevisionId !== composition.currentRevisionId
+    ) {
+      throw new Error('Active Creative Studio page contains inconsistent entity references.')
+    }
+    const db = await this.database
+    const revision = await db.get('composition-revisions', composition.currentRevisionId)
+    if (!revision || revision.compositionId !== composition.id) {
+      throw new CompositionRevisionConflictError(
+        `Composition "${composition.id}" must point to an existing page revision.`,
+      )
+    }
+    const transaction = db.transaction(['compositions', 'documents'], 'readwrite')
+    await transaction.objectStore('compositions').put(composition, composition.id)
+    await transaction.objectStore('documents').put(document, document.id)
+    await transaction.done
+  }
+
   async getDirections(projectId: CreativeProjectId): Promise<CreativeDirection[]> {
     const db = await this.database
     return db.getAllFromIndex('directions', 'by-project', projectId)

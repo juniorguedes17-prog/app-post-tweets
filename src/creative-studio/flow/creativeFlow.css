@@ -433,6 +433,10 @@
   .creative-studio-flow__field input,
   .creative-studio-flow__field select,
   .creative-studio-flow__upload { min-height: 44px; }
+  .creative-studio-flow__color input,
+  .creative-studio-flow__custom-color input { min-height: 44px; }
+  .creative-studio-flow__color input[type="color"],
+  .creative-studio-flow__custom-color input[type="color"] { height: 44px; }
 }
 
 @media (max-width: 980px) {
@@ -460,6 +464,10 @@
   .creative-studio-flow__type-row { align-items: stretch; }
   .creative-studio-flow__custom-color { grid-template-columns: minmax(0, 1fr) 48px; }
   .creative-studio-flow__custom-color button { grid-column: 1 / -1; }
+  .creative-studio-flow__color input,
+  .creative-studio-flow__custom-color input { min-height: 44px; }
+  .creative-studio-flow__color input[type="color"],
+  .creative-studio-flow__custom-color input[type="color"] { height: 44px; }
   .creative-studio-direction {
     display: grid;
     grid-template-columns: minmax(120px, 0.72fr) minmax(0, 1fr);

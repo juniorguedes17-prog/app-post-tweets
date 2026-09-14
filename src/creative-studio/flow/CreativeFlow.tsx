@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState, type ChangeEvent, type CSSProperties } from 'react'
 import type { BrandOverrides, BrandProfile, BrandTypographyOverrides } from '../domain/brandProfile'
 import type { CanvasFormat, CanvasSpec } from '../domain/canvas'
 import type { CreativeAsset, CreativeAssetKind } from '../domain/creativeAsset'
@@ -181,6 +181,12 @@ export function CreativeFlow({
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string>()
   const [error, setError] = useState<string>()
+
+  useEffect(() => {
+    setActiveDocument(document)
+    setActiveComposition(composition)
+    setActiveRevision(currentRevision)
+  }, [composition, currentRevision, document])
 
   const palette = resolveEditorPalette(brandProfile, brandOverrides) ?? brandProfile.palette
   const typography = resolveEditorTypography(brandProfile, brandOverrides) ?? brandProfile.typography
