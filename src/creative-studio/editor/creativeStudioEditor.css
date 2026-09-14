@@ -415,6 +415,29 @@
   .creative-studio-editor__actions button {
     min-height: 44px;
   }
+
+  .creative-studio-scene-element__resize-handle {
+    right: calc(-22px * var(--creative-studio-inverse-scale));
+    bottom: calc(-22px * var(--creative-studio-inverse-scale));
+    width: calc(44px * var(--creative-studio-inverse-scale));
+    height: calc(44px * var(--creative-studio-inverse-scale));
+    border: 0;
+    background: transparent;
+  }
+
+  .creative-studio-scene-element__resize-handle::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: calc(28px * var(--creative-studio-inverse-scale));
+    height: calc(28px * var(--creative-studio-inverse-scale));
+    border: calc(2px * var(--creative-studio-inverse-scale)) solid #ffffff;
+    border-radius: 50%;
+    background: var(--creative-studio-accent);
+    content: '';
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+  }
 }
 
 @media (pointer: coarse) {
