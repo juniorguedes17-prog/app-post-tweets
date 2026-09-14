@@ -65,7 +65,7 @@ export default function App() {
     console.info('[creative-observability]', 'workspace:active', { workspace })
   }, [workspace])
   return <div className="inest-workspace">
-    <nav className="inest-workspace-switcher" aria-label="iNest creation workspace">
+    <nav className="inest-workspace-switcher" aria-label="Espaço de criação iNest">
       <button
         type="button"
         aria-pressed={workspace === 'tweet-card'}

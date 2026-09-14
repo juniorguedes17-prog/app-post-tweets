@@ -25,8 +25,8 @@ export const creativeStyleLabel = (value: CreativeStyle) => labels({
   tweet: 'Tweet',
   editorial: 'Editorial',
   product: 'Produto',
-  lifestyle: 'Lifestyle',
-  storytelling: 'Storytelling',
+  lifestyle: 'Estilo de vida',
+  storytelling: 'Narrativa',
 }, value)
 
 export const compositionStrategyLabel = (value: CompositionStrategy) => labels({
@@ -38,7 +38,7 @@ export const compositionStrategyLabel = (value: CompositionStrategy) => labels({
 }, value)
 
 export const brandPresenceLabel = (value: BrandPresence) => labels({
-  minimal: 'Minimal',
+  minimal: 'Mínima',
   normal: 'Normal',
   none: 'Sem assinatura',
 }, value)
