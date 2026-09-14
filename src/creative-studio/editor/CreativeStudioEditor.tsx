@@ -64,8 +64,24 @@ export function CreativeStudioEditor({
       if (event.key === 'Escape') editor.selectElement(undefined)
     }
 
+    const clearSelectionOutsideEditor = (event: PointerEvent) => {
+      const target = event.target
+      if (!(target instanceof Element)) return
+      if (!target.closest('.creative-studio-app')) return
+      if (target.closest('.creative-studio-editor')) return
+      if (target.closest('button, input, select, textarea, label, a, [contenteditable="true"]')) {
+        return
+      }
+
+      editor.selectElement(undefined)
+    }
+
     document.addEventListener('keydown', clearSelectionOnEscape)
-    return () => document.removeEventListener('keydown', clearSelectionOnEscape)
+    document.addEventListener('pointerdown', clearSelectionOutsideEditor)
+    return () => {
+      document.removeEventListener('keydown', clearSelectionOnEscape)
+      document.removeEventListener('pointerdown', clearSelectionOutsideEditor)
+    }
   }, [editor.selectElement, editor.selectedElementId])
 
   const palette = useMemo(
