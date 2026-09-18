@@ -136,6 +136,15 @@ const compositions: CompositionStrategy[] = [
 const brandPresences: BrandPresence[] = ['minimal', 'normal', 'none']
 const assetKinds: Exclude<CreativeAssetKind, 'reference'>[] = ['image', 'photo', 'product', 'logo']
 
+const configurationPanels = [
+  { id: 'brief', label: 'Briefing', compactLabel: 'Briefing' },
+  { id: 'images', label: 'Imagens', compactLabel: 'Imagens' },
+  { id: 'references', label: 'Referências Visuais', compactLabel: 'Referências' },
+  { id: 'controls', label: 'Controles Criativos', compactLabel: 'Controles' },
+] as const
+
+type ConfigurationPanelId = typeof configurationPanels[number]['id']
+
 function canvasForFormat(format: CanvasFormat, current: CanvasSpec): CanvasSpec {
   if (format === 'custom') return { ...current, format }
   return { ...canvasPresets[format], background: current.background }
@@ -200,6 +209,7 @@ export function CreativeFlow({
   const [referencePurpose, setReferencePurpose] = useState('')
   const [customColorName, setCustomColorName] = useState('')
   const [customColorValue, setCustomColorValue] = useState('#5F7CFF')
+  const [activePanel, setActivePanel] = useState<ConfigurationPanelId>('brief')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string>()
   const [error, setError] = useState<string>()
@@ -497,7 +507,35 @@ export function CreativeFlow({
           className="creative-studio-flow__form"
           onSubmit={(event) => { event.preventDefault(); generateDirections() }}
         >
-          <fieldset className="creative-studio-flow__section" disabled={busy}>
+          <nav className="creative-studio-flow__panel-navigation" aria-label="Seções da configuração">
+            {configurationPanels.map((panel) => {
+              const active = panel.id === activePanel
+              return (
+                <button
+                  key={panel.id}
+                  type="button"
+                  aria-label={panel.label}
+                  aria-pressed={active}
+                  aria-controls={`creative-studio-panel-${panel.id}`}
+                  onClick={() => setActivePanel(panel.id)}
+                >
+                  <span className="creative-studio-flow__panel-navigation-label">
+                    {panel.label}
+                  </span>
+                  <span className="creative-studio-flow__panel-navigation-compact-label">
+                    {panel.compactLabel}
+                  </span>
+                </button>
+              )
+            })}
+          </nav>
+
+          <fieldset
+            id="creative-studio-panel-brief"
+            className="creative-studio-flow__section"
+            disabled={busy}
+            hidden={activePanel !== 'brief'}
+          >
             <legend>Briefing</legend>
             <label className="creative-studio-flow__field creative-studio-flow__field--wide">
               <span>Conteúdo</span>
@@ -586,7 +624,12 @@ export function CreativeFlow({
             ) : null}
           </fieldset>
 
-          <fieldset className="creative-studio-flow__section" disabled={busy}>
+          <fieldset
+            id="creative-studio-panel-images"
+            className="creative-studio-flow__section"
+            disabled={busy}
+            hidden={activePanel !== 'images'}
+          >
             <legend>Imagens</legend>
             <label className="creative-studio-flow__field">
               <span>Tipo de imagem</span>
@@ -616,7 +659,12 @@ export function CreativeFlow({
             </div>
           </fieldset>
 
-          <fieldset className="creative-studio-flow__section" disabled={busy}>
+          <fieldset
+            id="creative-studio-panel-references"
+            className="creative-studio-flow__section"
+            disabled={busy}
+            hidden={activePanel !== 'references'}
+          >
             <legend>Referências visuais</legend>
             <label className="creative-studio-flow__field">
               <span>Objetivo da referência</span>
@@ -649,7 +697,12 @@ export function CreativeFlow({
             </div>
           </fieldset>
 
-          <fieldset className="creative-studio-flow__section" disabled={busy}>
+          <fieldset
+            id="creative-studio-panel-controls"
+            className="creative-studio-flow__section"
+            disabled={busy}
+            hidden={activePanel !== 'controls'}
+          >
             <legend>Controles criativos</legend>
             <label className="creative-studio-flow__field creative-studio-flow__field--wide">
               <span>Clean ↔ Raw: {Math.round(draftBrief.ugcIntensity.value * 100)}%</span>
